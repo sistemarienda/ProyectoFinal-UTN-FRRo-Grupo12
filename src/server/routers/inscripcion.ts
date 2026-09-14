@@ -65,8 +65,16 @@ async function inscribirNucleo(
 
   if (errorAnotados) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(errorAnotados) });
 
+  // El cupo se controla contra el total real, no contra `anotados`:
+  // `inscripcion_lectura` sólo deja ver al cliente las filas de su propia
+  // familia, así que contar sobre lo visible dejaría pasar cupo que no
+  // existe cuando quien llama es el portal (M13). `anotados` sigue siendo
+  // la fuente correcta para "¿este alumno ya está anotado?" y para
+  // reactivar una cancelación propia: eso sí es correcto por RLS en los dos
+  // roles que llaman a esta función.
   const activos = (anotados ?? []).filter((i) => i.estado === 'inscripto');
-  const cupo = cupoDeClase(clase.servicio?.modalidad ?? null, clase.cupo, activos.length);
+  const { data: totalInscriptos } = await ctx.supabase.rpc('inscriptos_de_clase', { p_clase: input.claseId });
+  const cupo = cupoDeClase(clase.servicio?.modalidad ?? null, clase.cupo, Number(totalInscriptos ?? activos.length));
 
   if (activos.some((i) => i.alumno_id === input.alumnoId)) {
     throw new TRPCError({ code: 'CONFLICT', message: 'Ese alumno ya está inscripto en esta clase.' });

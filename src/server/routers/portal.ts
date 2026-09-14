@@ -66,17 +66,22 @@ async function alumnosPropios(supabase: SupabaseCtx, clienteId: string) {
   }));
 }
 
-/** Cuántos alumnos activos hay inscriptos en cada clase (mismo criterio que `clase.ts`). */
+/**
+ * Cuántos alumnos hay inscriptos en cada clase, de cualquier familia.
+ *
+ * A diferencia de `clase.ts` (donde quien consulta siempre es personal y ve
+ * todas las filas), acá puede llamar el propio cliente: `inscripcion_lectura`
+ * sólo le deja ver las inscripciones de su familia, así que se cuenta con
+ * `inscriptos_de_clase` (security definer) y no con un `.select()` directo —
+ * mismo criterio que `ocupacion_evento`.
+ */
 async function inscriptosPorClase(supabase: SupabaseCtx, claseIds: readonly string[]) {
   if (claseIds.length === 0) return new Map<string, number>();
-  const { data, error } = await supabase
-    .from('inscripcion')
-    .select('clase_id')
-    .in('clase_id', [...claseIds])
-    .eq('estado', 'inscripto');
-  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(error) });
   const conteo = new Map<string, number>();
-  for (const i of data ?? []) conteo.set(i.clase_id, (conteo.get(i.clase_id) ?? 0) + 1);
+  const resultados = await Promise.all(
+    claseIds.map((id) => supabase.rpc('inscriptos_de_clase', { p_clase: id })),
+  );
+  claseIds.forEach((id, i) => conteo.set(id, Number(resultados[i]?.data ?? 0)));
   return conteo;
 }
 
