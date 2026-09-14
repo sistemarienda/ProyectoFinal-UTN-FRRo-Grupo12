@@ -22,14 +22,16 @@ export async function Armazon({ children }: { children: ReactNode }) {
   }
 
   // El portal (M13) no es una pantalla más del personal: es un shell propio,
-  // sin sidebar, con su navegación fija abajo en mobile (`fase2/portal-
-  // cliente.html`, que ni en desktop dibuja la barra lateral). `esPersonal`
-  // es la misma distinción que ya usa `lib/roles.ts`.
+  // sin sidebar, con su navegación fija abajo (`fase2/portal-cliente.html`
+  // ni en desktop dibuja la barra lateral, y las otras tres pantallas del
+  // prototipo no tienen variante de escritorio: `.portal-nav` queda fija en
+  // cualquier ancho, así que el padding de abajo también). `esPersonal` es la
+  // misma distinción que ya usa `lib/roles.ts`.
   if (sesion.rol === 'cliente') {
     return (
       <div className="flex min-h-dvh flex-col">
         <BarraSuperior nombre={sesion.nombre} apellido={sesion.apellido} rol={sesion.rol} conMarca />
-        <main className="portal-cuerpo mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 md:pb-10">{children}</main>
+        <main className="portal-cuerpo mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6">{children}</main>
         <NavPortal />
       </div>
     );

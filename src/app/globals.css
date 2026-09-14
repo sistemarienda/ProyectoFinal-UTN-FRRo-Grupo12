@@ -481,10 +481,12 @@ dialog.modal::backdrop { background: rgba(42, 24, 18, .5); }
 
 /* En `fase2/` el `.bottom-nav` es el último hijo del marco `.phone`, que lo
    deja pegado abajo sin más regla que el flujo normal. El portal no tiene ese
-   marco: acá se fija a la ventana y sólo en mobile, que es donde el sitemap
-   dice que vive («uso esporádico, sin capacitación»). El padding-bottom de
-   `.portal-cuerpo` (ver `armazon-portal.tsx`) es lo que evita que el contenido
-   quede tapado detrás. */
+   marco, y a diferencia de las otras tres pantallas del prototipo, tampoco
+   tiene una variante de escritorio que dibuje otra navegación: sin fijarla
+   acá, en desktop no habría ninguna forma de pasar de una pantalla del
+   portal a otra. Se fija abajo en cualquier ancho, y `.portal-cuerpo`
+   (`armazon.tsx`) le deja el padding-bottom para que el contenido no quede
+   tapado. */
 .bottom-nav {
   display: grid; text-align: center; font-size: 11px;
   border-top: 1px solid var(--surface-border);
@@ -496,13 +498,12 @@ dialog.modal::backdrop { background: rgba(42, 24, 18, .5); }
   min-height: 44px; justify-content: center;
 }
 .bottom-nav a[aria-current="page"] { color: var(--accent-ink); font-weight: 500; }
-@media (max-width: 767px) {
-  .portal-nav {
-    position: fixed; inset-inline: 0; bottom: 0; z-index: 20;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+.portal-nav {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 20;
+  max-width: 28rem; margin-inline: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-inline: 1px solid var(--surface-border);
 }
-@media (min-width: 768px) { .portal-nav { display: none; } }
 
 /* --- Calendario (agenda de clases) --- */
 .cell {

@@ -310,10 +310,11 @@ export const routerPortal = crearRouter({
     if (errorEv) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(errorEv) });
 
     const eventoIds = (eventos ?? []).map((e) => e.id);
-    const [{ data: todas }, { data: mias }] = await Promise.all([
-      eventoIds.length
-        ? ctx.supabase.from('inscripcion_evento').select('evento_id').in('evento_id', eventoIds).eq('estado', 'inscripto')
-        : Promise.resolve({ data: [] as { evento_id: string }[] }),
+    // `inscripcion_evento_lectura` sólo deja ver las inscripciones propias: sin
+    // la función, la ocupación de un evento se contaría sólo con las de este
+    // cliente y la pantalla mostraría cupo libre que no existe.
+    const [ocupaciones, { data: mias }] = await Promise.all([
+      Promise.all(eventoIds.map((id) => ctx.supabase.rpc('ocupacion_evento', { p_evento: id }))),
       eventoIds.length
         ? ctx.supabase
             .from('inscripcion_evento')
@@ -323,8 +324,7 @@ export const routerPortal = crearRouter({
         : Promise.resolve({ data: [] as { evento_id: string; alumno_id: string | null; caballo_id: string | null }[] }),
     ]);
 
-    const ocupados = new Map<string, number>();
-    for (const i of todas ?? []) ocupados.set(i.evento_id, (ocupados.get(i.evento_id) ?? 0) + 1);
+    const ocupados = new Map<string, number>(eventoIds.map((id, i) => [id, Number(ocupaciones[i]?.data ?? 0)]));
 
     return {
       mensajes: mensajes ?? [],
@@ -388,12 +388,10 @@ export const routerPortal = crearRouter({
       if (previa) throw new TRPCError({ code: 'CONFLICT', message: 'Ya está inscripto en este evento.' });
 
       if (evento.cupo != null) {
-        const { count } = await ctx.supabase
-          .from('inscripcion_evento')
-          .select('id', { count: 'exact', head: true })
-          .eq('evento_id', input.eventoId)
-          .eq('estado', 'inscripto');
-        if ((count ?? 0) >= evento.cupo) {
+        // `inscripcion_evento_lectura` sólo deja ver las inscripciones propias:
+        // contar con `.select` desde acá dejaría pasar cupo que ya no existe.
+        const { data: ocupacion } = await ctx.supabase.rpc('ocupacion_evento', { p_evento: input.eventoId });
+        if (Number(ocupacion ?? 0) >= evento.cupo) {
           throw new TRPCError({ code: 'CONFLICT', message: 'Ya no hay cupo para este evento.' });
         }
       }

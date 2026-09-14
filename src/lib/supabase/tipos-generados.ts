@@ -1907,6 +1907,7 @@ export type Database = {
       es_personal: { Args: never; Returns: boolean }
       instalar_auditoria: { Args: never; Returns: undefined }
       instalar_tocar_actualizado_en: { Args: never; Returns: undefined }
+      ocupacion_evento: { Args: { p_evento: string }; Returns: number }
       persona_actual: { Args: never; Returns: string }
       rol_actual: {
         Args: never
