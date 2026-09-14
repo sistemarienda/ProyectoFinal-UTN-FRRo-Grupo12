@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { llamador } from '@/lib/trpc/servidor';
 import { Sidebar } from './sidebar';
 import { BarraSuperior } from './barra-superior';
+import { NavPortal } from './portal/nav-portal';
 
 /**
  * Sidebar y cabecera comparten la misma sesión, así que se resuelve una sola
@@ -18,6 +19,20 @@ export async function Armazon({ children }: { children: ReactNode }) {
   } catch {
     // Sin sesión (p. ej. /ingresar): sin sidebar ni cabecera, sólo la página.
     return <>{children}</>;
+  }
+
+  // El portal (M13) no es una pantalla más del personal: es un shell propio,
+  // sin sidebar, con su navegación fija abajo en mobile (`fase2/portal-
+  // cliente.html`, que ni en desktop dibuja la barra lateral). `esPersonal`
+  // es la misma distinción que ya usa `lib/roles.ts`.
+  if (sesion.rol === 'cliente') {
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <BarraSuperior nombre={sesion.nombre} apellido={sesion.apellido} rol={sesion.rol} conMarca />
+        <main className="portal-cuerpo mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 md:pb-10">{children}</main>
+        <NavPortal />
+      </div>
+    );
   }
 
   return (

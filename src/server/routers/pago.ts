@@ -1,8 +1,10 @@
 import { TRPCError } from '@trpc/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { crearRouter, procedimientoAdmin, procedimientoDeArea } from '../trpc';
 import { cuentaDeCliente, nombreDeCliente } from './cuentaCorriente';
 import { primerDiaDelMes } from '@/lib/cobranza';
+import type { Database } from '@/lib/supabase/tipos-generados';
 import { mensajeDeError } from '../errores';
 
 /**
@@ -31,6 +33,64 @@ const TEXTO_MEDIO: Record<string, string> = {
   efectivo: 'Efectivo',
   cheque: 'Cheque',
 };
+
+/**
+ * El núcleo de `generarPreferencia`, compartido con `portal.pagar` (M13): el
+ * cliente genera su propio enlace con la misma lógica y la misma honestidad
+ * sobre la credencial que falta, sólo que restringido a su propio saldo por el
+ * guarda del router que lo llama, no acá.
+ */
+export async function crearPreferenciaMercadoPago(
+  supabase: SupabaseClient<Database>,
+  input: { clienteId: string; importe: number; concepto: string },
+) {
+  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!token) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message:
+        'Falta MERCADOPAGO_ACCESS_TOKEN en este entorno. No bloquea el desarrollo de lo demás, pero sin credenciales reales no se puede generar un enlace de pago (07-dependencias-externas.md).',
+    });
+  }
+
+  const { data: pago, error } = await supabase
+    .from('pago')
+    .insert({ cliente_id: input.clienteId, importe: input.importe, medio: 'mercadopago', estado: 'pendiente' })
+    .select('id')
+    .single();
+  if (error || !pago) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(error, 'No se pudo registrar el pago.') });
+  }
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: [{ title: input.concepto, quantity: 1, currency_id: 'ARS', unit_price: input.importe }],
+        external_reference: pago.id,
+      }),
+    });
+  } catch (e) {
+    await supabase.from('pago').delete().eq('id', pago.id);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `No se pudo contactar a MercadoPago: ${e instanceof Error ? e.message : 'error desconocido'}.`,
+    });
+  }
+
+  if (!respuesta.ok) {
+    await supabase.from('pago').delete().eq('id', pago.id);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `MercadoPago rechazó la preferencia (${respuesta.status}).`,
+    });
+  }
+
+  const preferencia = (await respuesta.json()) as { init_point?: string };
+  return { pagoId: pago.id as string, linkPago: preferencia.init_point ?? null };
+}
 
 export const routerPago = crearRouter({
   /** Pagos del período (EQ), con el mismo criterio de período que los cargos. */
@@ -161,54 +221,7 @@ export const routerPago = crearRouter({
         concepto: z.string().trim().min(1, 'Hace falta describir el concepto.'),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
-      if (!token) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message:
-            'Falta MERCADOPAGO_ACCESS_TOKEN en este entorno. No bloquea el desarrollo de lo demás, pero sin credenciales reales no se puede generar un enlace de pago (07-dependencias-externas.md).',
-        });
-      }
-
-      const { data: pago, error } = await ctx.supabase
-        .from('pago')
-        .insert({ cliente_id: input.clienteId, importe: input.importe, medio: 'mercadopago', estado: 'pendiente' })
-        .select('id')
-        .single();
-      if (error || !pago) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'No se pudo registrar el pago.' });
-      }
-
-      let respuesta: Response;
-      try {
-        respuesta = await fetch('https://api.mercadopago.com/checkout/preferences', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: [{ title: input.concepto, quantity: 1, currency_id: 'ARS', unit_price: input.importe }],
-            external_reference: pago.id,
-          }),
-        });
-      } catch (e) {
-        await ctx.supabase.from('pago').delete().eq('id', pago.id);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `No se pudo contactar a MercadoPago: ${e instanceof Error ? e.message : 'error desconocido'}.`,
-        });
-      }
-
-      if (!respuesta.ok) {
-        await ctx.supabase.from('pago').delete().eq('id', pago.id);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `MercadoPago rechazó la preferencia (${respuesta.status}).`,
-        });
-      }
-
-      const preferencia = (await respuesta.json()) as { init_point?: string };
-      return { pagoId: pago.id as string, linkPago: preferencia.init_point ?? null };
-    }),
+    .mutation(async ({ ctx, input }) => crearPreferenciaMercadoPago(ctx.supabase, input)),
 
   /**
    * Imputar un pago a la cuenta corriente (EI): el paso que efectivamente salda

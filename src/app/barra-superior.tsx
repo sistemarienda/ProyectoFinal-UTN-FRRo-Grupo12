@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { SignOut } from '@phosphor-icons/react';
 import { clienteDeNavegador } from '@/lib/supabase/navegador';
+import { Isotipo } from './marca';
 
 const ROLES = {
   administrador: 'Administrador',
@@ -16,10 +18,13 @@ export function BarraSuperior({
   nombre,
   apellido,
   rol,
+  conMarca = false,
 }: {
   nombre: string | null;
   apellido: string | null;
   rol: keyof typeof ROLES;
+  /** El portal no tiene sidebar: sin esto, la marca no aparece en ningún lado. */
+  conMarca?: boolean;
 }) {
   const router = useRouter();
   const [saliendo, iniciarTransicion] = useTransition();
@@ -38,7 +43,14 @@ export function BarraSuperior({
 
   return (
     <div className="topbar">
-      <span className="text-sm text-fg-muted">{ROLES[rol]}</span>
+      {conMarca ? (
+        <Link href="/portal" aria-label="RIENDA, ir a mi cuenta" className="flex items-center gap-2 text-accent-ink">
+          <Isotipo className="h-6 w-6" />
+          <span className="font-serif text-lg">RIENDA</span>
+        </Link>
+      ) : (
+        <span className="text-sm text-fg-muted">{ROLES[rol]}</span>
+      )}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
           <span className="avatar" aria-hidden="true">{iniciales}</span>

@@ -68,6 +68,12 @@ export const routerUsuario = crearRouter({
    * No se fija una contraseña acá: se envía una invitación para que la persona
    * elija la suya. Así ninguna contraseña pasa por el sistema ni por quien la
    * da de alta.
+   *
+   * **La persona se reutiliza si ya existe** (mismo criterio que
+   * `cliente.personaIdempotente`), y no es un caso raro: es exactamente lo que
+   * hace falta para darle acceso al portal a un cliente que M2 ya cargó. Si esa
+   * persona ya tiene un usuario, `usuario_persona_unica` lo rechaza con un
+   * mensaje claro en vez de dejar dos logins para la misma persona.
    */
   crear: procedimientoAdmin
     .input(
@@ -82,29 +88,35 @@ export const routerUsuario = crearRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { data: persona, error: errorPersona } = await ctx.supabase
+      const { data: existente, error: errorBusqueda } = await ctx.supabase
         .from('persona')
-        .insert({
-          nombre: input.nombre,
-          apellido: input.apellido,
-          tipo_documento: input.tipoDocumento,
-          numero_documento: input.numeroDocumento,
-          email: input.email,
-          telefono: input.telefono ?? null,
-        })
         .select('id')
-        .single();
+        .eq('tipo_documento', input.tipoDocumento)
+        .eq('numero_documento', input.numeroDocumento)
+        .maybeSingle();
+      if (errorBusqueda) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(errorBusqueda) });
+      }
 
-      if (errorPersona) {
-        // El índice único de (tipo_documento, numero_documento) es la defensa
-        // real contra el duplicado; acá sólo se traduce a un mensaje legible.
-        const duplicada = errorPersona.code === '23505';
-        throw new TRPCError({
-          code: duplicada ? 'CONFLICT' : 'INTERNAL_SERVER_ERROR',
-          message: duplicada
-            ? 'Ya existe una persona con ese documento.'
-            : errorPersona.message,
-        });
+      let personaId = existente?.id as string | undefined;
+      if (!personaId) {
+        const { data: persona, error: errorPersona } = await ctx.supabase
+          .from('persona')
+          .insert({
+            nombre: input.nombre,
+            apellido: input.apellido,
+            tipo_documento: input.tipoDocumento,
+            numero_documento: input.numeroDocumento,
+            email: input.email,
+            telefono: input.telefono ?? null,
+          })
+          .select('id')
+          .single();
+
+        if (errorPersona) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(errorPersona) });
+        }
+        personaId = persona.id as string;
       }
 
       const servicio = clienteDeServicio();
@@ -113,9 +125,10 @@ export const routerUsuario = crearRouter({
       );
 
       if (errorAuth || !credencial?.user) {
-        // La persona ya se creó: se deshace para no dejar una ficha sin acceso
-        // que después nadie sabe si es un alta a medias o un dato legítimo.
-        await ctx.supabase.from('persona').delete().eq('id', persona.id);
+        // Sólo se deshace la persona si se acaba de crear acá: una reutilizada
+        // (por ejemplo, la de un cliente ya cargado en M2) no se borra por un
+        // correo que falló.
+        if (!existente) await ctx.supabase.from('persona').delete().eq('id', personaId);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `No se pudo enviar la invitación: ${errorAuth?.message ?? 'sin detalle'}`,
@@ -124,7 +137,7 @@ export const routerUsuario = crearRouter({
 
       const { error: errorUsuario } = await ctx.supabase.from('usuario').insert({
         id: credencial.user.id,
-        persona_id: persona.id,
+        persona_id: personaId,
         rol: input.rol,
       });
 
@@ -132,7 +145,7 @@ export const routerUsuario = crearRouter({
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(errorUsuario) });
       }
 
-      return { usuarioId: credencial.user.id, personaId: persona.id };
+      return { usuarioId: credencial.user.id, personaId };
     }),
 
   /** Modificar el rol de un usuario. */

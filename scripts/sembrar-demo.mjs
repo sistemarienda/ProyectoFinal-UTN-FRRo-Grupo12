@@ -113,18 +113,8 @@ console.log(`instalaciones: ${instalaciones.length}`);
 // Hacen falta de verdad y no como fila suelta: `clase.instructor_id` apunta a
 // `usuario`, y desde M7 el sistema lo opera un rol que no es el dueño.
 // -----------------------------------------------------------------------------
-async function crearUsuario({ nombre, apellido, documento, email, rol, telefono, nacimiento }) {
-  const persona = await uno('persona', {
-    nombre,
-    apellido,
-    tipo_documento: 'dni',
-    numero_documento: documento,
-    fecha_nacimiento: nacimiento,
-    telefono,
-    email,
-    domicilio: 'Funes, Santa Fe',
-  });
-
+/** La cuenta de Auth y la fila de `usuario`, dada una persona ya resuelta. */
+async function crearAccesoParaPersona({ personaId, documento, email, rol }) {
   const clave = `Rienda.${documento}`;
   const { data: cuenta, error } = await db.auth.admin.createUser({
     email,
@@ -146,9 +136,34 @@ async function crearUsuario({ nombre, apellido, documento, email, rol, telefono,
     id = previa.id;
   }
 
-  await uno('usuario', { id, persona_id: persona.id, rol });
+  await uno('usuario', { id, persona_id: personaId, rol });
   console.log(`  ${rol.padEnd(12)} ${email.padEnd(40)} clave: ${clave}`);
   return id;
+}
+
+async function crearUsuario({ nombre, apellido, documento, email, rol, telefono, nacimiento }) {
+  const persona = await uno('persona', {
+    nombre,
+    apellido,
+    tipo_documento: 'dni',
+    numero_documento: documento,
+    fecha_nacimiento: nacimiento,
+    telefono,
+    email,
+    domicilio: 'Funes, Santa Fe',
+  });
+
+  return crearAccesoParaPersona({ personaId: persona.id, documento, email, rol });
+}
+
+/**
+ * El acceso al portal (M13) de un cliente que ya está cargado: no crea una
+ * persona nueva, la reutiliza —es exactamente lo que hace ahora
+ * `usuario.crear` en el router— así que Marcela y Lucía entran con la misma
+ * ficha que ya tienen como clientas, no con un duplicado.
+ */
+async function crearAccesoDePortal({ personaId, documento, email }) {
+  return crearAccesoParaPersona({ personaId, documento, email, rol: 'cliente' });
 }
 
 console.log('personal:');
@@ -898,3 +913,45 @@ for (const c of cartera ?? []) {
   const nombre = c.cliente?.razon_social ?? c.cliente?.persona?.apellido ?? '?';
   console.log(`  ${nombre.padEnd(38)} $${Number(c.saldo).toLocaleString('es-AR')}`);
 }
+
+// -----------------------------------------------------------------------------
+// 7 · Portal del cliente (M13)
+//
+// Dos accesos, elegidos porque entre los dos recorren las cuatro pantallas:
+// Marcela tiene dos alumnos (Joaquín y Martina) y ningún caballo, así que
+// prueba el filtro de la agenda y el estado vacío de «Mis caballos»; Lucía es
+// alumna de sí misma y además propietaria de Aurora, así que prueba la ficha
+// del caballo con novedades reales. Ninguna de las dos es una persona nueva:
+// `crearAccesoDePortal` reutiliza la que ya tienen como clientas.
+// -----------------------------------------------------------------------------
+console.log('portal:');
+await crearAccesoDePortal({
+  personaId: per['Marcela Gutiérrez'],
+  documento: '27418256',
+  email: 'marcela.gutierrez@correo.demo',
+});
+await crearAccesoDePortal({
+  personaId: per['Lucía Pereyra'],
+  documento: '33871402',
+  email: 'lucia.pereyra@correo.demo',
+});
+
+// Un torneo abierto, para que «Novedades y avisos» tenga algo que inscribir y
+// no sólo el estado vacío. Nace `abierto` directamente: M15 (Automatizaciones
+// y eventos) es quien va a construir la pantalla que lo hace nacer en
+// `borrador`; hasta entonces, sembrarlo ya abierto no inventa nada que el
+// modelo no permita (`estado_evento` lo declara desde el esquema base).
+const torneo = await uno('evento', {
+  nombre: 'Torneo interno de salto',
+  tipo: 'torneo',
+  inicia_en: enFunes('2026-10-03', '10:00'),
+  finaliza_en: enFunes('2026-10-03', '18:00'),
+  cierra_inscripcion_en: '2026-09-28',
+  cupo: 20,
+  estado: 'abierto',
+});
+await insertar('inscripcion_evento', [
+  // Uno ya inscripto, para que la pantalla también muestre el cupo bajando.
+  { evento_id: torneo.id, cliente_id: cli['Rossi'], alumno_id: alu['Tomás Rossi'], caballo_id: null },
+]);
+console.log(`  ${torneo.nombre}: abierto hasta el 28/09, 1 de 20 cupos ocupados`);

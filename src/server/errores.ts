@@ -31,6 +31,7 @@ const POR_RESTRICCION: Record<string, string> = {
     'Ese número de comprobante ya está usado en el punto de venta. Actualizá el último número autorizado en Configuración antes de volver a emitir.',
   detalle_insumo_unico: 'Ese insumo ya figura en la orden. Corregí la cantidad del renglón existente.',
   persona_documento_unico: 'Ya hay una persona registrada con ese tipo y número de documento.',
+  usuario_persona_unica: 'Esa persona ya tiene un usuario del sistema.',
   orden_compra_numero_unico: 'Ese número de orden ya está usado en el año.',
   estado_cuenta_periodo_unico: 'Ya se emitió un estado de cuenta para ese cliente y ese período.',
 };
