@@ -1,5 +1,6 @@
 import { clienteDeServicio } from '@/lib/supabase/servidor';
 import { mapearEstadoDePago, verificarFirmaWebhook } from '@/lib/mercadopago';
+import { notificarPorCodigo } from '@/server/notificaciones';
 
 /**
  * M4 · Webhook de MercadoPago.
@@ -58,14 +59,25 @@ export async function POST(peticion: Request) {
 
   const estado = mapearEstadoDePago(detalle.status);
   const supabase = clienteDeServicio();
-  await supabase
+  const { data: pago } = await supabase
     .from('pago')
     .update({
       referencia_externa: String(detalle.id),
       estado,
       acreditado_en: estado === 'acreditado' ? new Date().toISOString() : null,
     })
-    .eq('id', detalle.external_reference);
+    .eq('id', detalle.external_reference)
+    .select('cliente_id, importe')
+    .maybeSingle();
+
+  // M15: acuse de pago recibido, mismo criterio que `pago.registrarManual`.
+  if (estado === 'acreditado' && pago) {
+    await notificarPorCodigo({
+      codigoPlantilla: 'pago_recibido',
+      clienteId: pago.cliente_id,
+      valores: { importe: Number(pago.importe).toFixed(2), fecha: new Date().toISOString().slice(0, 10) },
+    });
+  }
 
   return Response.json({ ok: true });
 }

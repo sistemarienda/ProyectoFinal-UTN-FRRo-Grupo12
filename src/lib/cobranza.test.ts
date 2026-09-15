@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bucketsDeAntiguedad,
   clasificarEstadoCartera,
+  diaDeAvisoDeMora,
   fechaDeVencimiento,
   primerDiaDelMes,
   saldosPendientesFifo,
@@ -17,6 +18,20 @@ describe('fechaDeVencimiento', () => {
 describe('primerDiaDelMes', () => {
   it('trunca al primer día del mes', () => {
     expect(primerDiaDelMes(new Date('2026-09-17T00:00:00Z')).toISOString().slice(0, 10)).toBe('2026-09-01');
+  });
+});
+
+describe('diaDeAvisoDeMora', () => {
+  it('es el día siguiente al vencimiento cuando ese día es hábil', () => {
+    // 2026-08-10 es lunes; el aviso cae martes 11, sin corrimiento.
+    const aviso = diaDeAvisoDeMora(new Date('2026-08-10T00:00:00Z'));
+    expect(aviso.toISOString().slice(0, 10)).toBe('2026-08-11');
+  });
+
+  it('el sábado es hábil (RN-10): un vencimiento en sábado avisa el domingo corrido a lunes', () => {
+    // 2026-08-08 es sábado; el día siguiente, domingo 9, se corre al lunes 10.
+    const aviso = diaDeAvisoDeMora(new Date('2026-08-08T00:00:00Z'));
+    expect(aviso.toISOString().slice(0, 10)).toBe('2026-08-10');
   });
 });
 

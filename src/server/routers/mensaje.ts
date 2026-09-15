@@ -23,6 +23,20 @@ import { mensajeDeError } from '../errores';
  * se construya el perfil de campo, `confirmación de clase` y `clase
  * suspendida` (firmante `instructor_clase`) necesitan su propio guarda.
  */
+/**
+ * Los seis códigos que dispara el propio sistema y no un administrador desde
+ * una pantalla (M15, `notificaciones.ts` y el cron de RN-11). `estado_cuenta`
+ * queda afuera: sale de un botón de `/cobranza`, no de una automatización.
+ */
+const CODIGOS_AUTOMATIZADOS = [
+  'aviso_previo_vencimiento',
+  'recordatorio_pago',
+  'confirmacion_clase',
+  'clase_suspendida',
+  'aviso_evento',
+  'pago_recibido',
+] as const;
+
 export const routerMensaje = crearRouter({
   /** Historial de mensajes de un cliente (EQ). */
   historialDeCliente: procedimientoAdmin
@@ -59,6 +73,47 @@ export const routerMensaje = crearRouter({
       }
       return { total: (data ?? []).length, porCanalYEstado: conteo };
     }),
+
+  /**
+   * Estado de las automatizaciones (EQ, M15): último envío y resultado de los
+   * últimos 30 días para cada aviso que el sistema dispara solo. No hay una
+   * tabla de "corridas del cron" —`mensaje` ya es la trazabilidad de "se le
+   * avisó o no se le avisó" desde M5— así que se agrupa por plantilla en
+   * lugar de sumar una tabla nueva sólo para esto.
+   */
+  estadoDeAutomatizaciones: procedimientoAdmin.query(async ({ ctx }) => {
+    const desde = new Date();
+    desde.setDate(desde.getDate() - 30);
+
+    const { data: plantillas, error: errorPlantillas } = await ctx.supabase
+      .from('plantilla_mensaje')
+      .select('id, codigo, activa, estado_aprobacion')
+      .in('codigo', CODIGOS_AUTOMATIZADOS);
+    if (errorPlantillas) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(errorPlantillas) });
+
+    const idsPorCodigo = new Map((plantillas ?? []).map((p) => [p.id, p.codigo]));
+
+    const { data: mensajes, error } = await ctx.supabase
+      .from('mensaje')
+      .select('plantilla_id, estado, creado_en')
+      .in('plantilla_id', [...idsPorCodigo.keys()])
+      .gte('creado_en', desde.toISOString())
+      .order('creado_en', { ascending: false });
+    if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(error) });
+
+    return CODIGOS_AUTOMATIZADOS.map((codigo) => {
+      const plantilla = (plantillas ?? []).find((p) => p.codigo === codigo);
+      const propios = (mensajes ?? []).filter((m) => idsPorCodigo.get(m.plantilla_id) === codigo);
+      return {
+        codigo,
+        activa: plantilla?.activa ?? false,
+        estadoAprobacion: plantilla?.estado_aprobacion ?? null,
+        enviosUltimos30Dias: propios.length,
+        fallidosUltimos30Dias: propios.filter((m) => m.estado === 'fallido').length,
+        ultimoEnvio: propios[0]?.creado_en ?? null,
+      };
+    });
+  }),
 
   /** Enviar un mensaje individual (EI). */
   enviarIndividual: procedimientoAdmin

@@ -30,6 +30,18 @@ export function primerDiaDelMes(fecha: Date): Date {
   return new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), 1));
 }
 
+/**
+ * M15 · Día en que sale el aviso de mora de un vencimiento (RN-11), un día
+ * después de vencer y corrido al lunes si ese día cae domingo (RN-10: el
+ * domingo no es hábil para la cobranza, aunque el sábado sí).
+ */
+export function diaDeAvisoDeMora(vencimiento: Date): Date {
+  const aviso = new Date(vencimiento);
+  aviso.setUTCDate(aviso.getUTCDate() + 1);
+  if (aviso.getUTCDay() === 0) aviso.setUTCDate(aviso.getUTCDate() + 1);
+  return aviso;
+}
+
 export type EstadoCartera = 'al_dia' | 'proximo_a_vencer' | 'vencido';
 
 /**

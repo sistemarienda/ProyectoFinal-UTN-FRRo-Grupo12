@@ -3,9 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Database } from '@/lib/supabase/tipos-generados';
 import { crearRouter, procedimientoDeArea } from '../trpc';
-import { cancelacionEnTermino, cupoDeClase } from '@/lib/agenda';
+import { cancelacionEnTermino, cupoDeClase, partesLocales } from '@/lib/agenda';
 import { antelacionMinimaDeCancelacion } from '../parametros-servidor';
 import { mensajeDeError } from '../errores';
+import { notificarPorCodigo } from '../notificaciones';
 
 /**
  * M7 · Inscripciones a una clase.
@@ -45,7 +46,9 @@ async function inscribirNucleo(
 ) {
   const { data: clase, error: errorClase } = await ctx.supabase
     .from('clase')
-    .select('id, estado, cupo, servicio:servicio_id (id, nombre, modalidad)')
+    .select(
+      'id, estado, cupo, inicia_en, servicio:servicio_id (id, nombre, modalidad), instalacion:instalacion_id (nombre), instructor:instructor_id (persona:persona_id (nombre, apellido))',
+    )
     .eq('id', input.claseId)
     .maybeSingle();
 
@@ -118,6 +121,30 @@ async function inscribirNucleo(
       });
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(error) });
+
+  // CUS05, paso 6: se notifica la clase programada al responsable del alumno.
+  // Mejor esfuerzo: la inscripción ya quedó registrada, y no depende de que
+  // el aviso salga (M15, `notificaciones.ts`).
+  const { data: alumno } = await ctx.supabase
+    .from('alumno')
+    .select('cliente_id, persona:persona_id (nombre, apellido)')
+    .eq('id', input.alumnoId)
+    .maybeSingle();
+
+  if (alumno) {
+    const { fecha, hora } = partesLocales(clase.inicia_en);
+    await notificarPorCodigo({
+      codigoPlantilla: 'confirmacion_clase',
+      clienteId: alumno.cliente_id,
+      valores: {
+        alumno: [alumno.persona?.nombre, alumno.persona?.apellido].filter(Boolean).join(' '),
+        fecha,
+        hora,
+        instalacion: clase.instalacion?.nombre ?? '',
+        instructor: [clase.instructor?.persona?.nombre, clase.instructor?.persona?.apellido].filter(Boolean).join(' '),
+      },
+    });
+  }
 
   return {
     ok: true as const,

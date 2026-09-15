@@ -6,6 +6,7 @@ import { cuentaDeCliente, nombreDeCliente } from './cuentaCorriente';
 import { primerDiaDelMes } from '@/lib/cobranza';
 import type { Database } from '@/lib/supabase/tipos-generados';
 import { mensajeDeError } from '../errores';
+import { notificarPorCodigo } from '../notificaciones';
 
 /**
  * M4 · Pagos.
@@ -204,6 +205,14 @@ export const routerPago = crearRouter({
         }
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(error) });
       }
+
+      // M15: acuse de pago recibido, mejor esfuerzo.
+      await notificarPorCodigo({
+        codigoPlantilla: 'pago_recibido',
+        clienteId: input.clienteId,
+        valores: { importe: input.importe.toFixed(2), fecha: new Date().toISOString().slice(0, 10) },
+      });
+
       return { pagoId: data.id as string };
     }),
 

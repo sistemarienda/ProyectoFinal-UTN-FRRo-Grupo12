@@ -9,10 +9,12 @@ import {
   cupoDeClase,
   instanteDesdeLocal,
   ocupacionDeInstalaciones,
+  partesLocales,
   semanaDe,
 } from '@/lib/agenda';
 import { antelacionMinimaDeCancelacion } from '../parametros-servidor';
 import { mensajeDeError } from '../errores';
+import { notificarPorCodigo } from '../notificaciones';
 
 /**
  * M7 · Agenda de clases.
@@ -579,7 +581,7 @@ export const routerClase = crearRouter({
     .mutation(async ({ ctx, input }) => {
       const { data: actual, error: errorActual } = await ctx.supabase
         .from('clase')
-        .select('estado')
+        .select('estado, inicia_en, instalacion:instalacion_id (nombre)')
         .eq('id', input.claseId)
         .maybeSingle();
 
@@ -598,6 +600,34 @@ export const routerClase = crearRouter({
         .eq('id', input.claseId);
 
       if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: mensajeDeError(error) });
+
+      // CUS05, camino 7.a: se avisa a cada inscripto activo. Mejor esfuerzo,
+      // igual que en `inscripcion.ts` — la clase ya quedó suspendida.
+      const { data: inscriptos } = await ctx.supabase
+        .from('inscripcion')
+        .select('alumno:alumno_id (cliente_id, persona:persona_id (nombre, apellido))')
+        .eq('clase_id', input.claseId)
+        .eq('estado', 'inscripto');
+
+      const { fecha, hora } = partesLocales(actual.inicia_en);
+      await Promise.all(
+        (inscriptos ?? [])
+          .filter((i) => i.alumno)
+          .map((i) =>
+            notificarPorCodigo({
+              codigoPlantilla: 'clase_suspendida',
+              clienteId: i.alumno!.cliente_id,
+              valores: {
+                alumno: [i.alumno!.persona?.nombre, i.alumno!.persona?.apellido].filter(Boolean).join(' '),
+                fecha,
+                hora,
+                instalacion: actual.instalacion?.nombre ?? '',
+                motivo: input.motivo,
+              },
+            }),
+          ),
+      );
+
       return { ok: true as const };
     }),
 });
