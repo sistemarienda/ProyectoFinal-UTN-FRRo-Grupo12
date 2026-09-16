@@ -4,7 +4,7 @@
  * Lo que no toca la red vive acá y se prueba solo: el prompt del sistema, el
  * catálogo de herramientas que el modelo puede pedir, y la búsqueda por
  * nombre que usan `buscar_cliente` y `buscar_caballo`. Lo que sí toca la red
- * —la llamada a la API de Claude, y los `createCaller` contra los otros
+ * —la llamada a la API de Gemini, y los `createCaller` contra los otros
  * routers— vive en `server/routers/asistente.ts`, sin probar, con el mismo
  * criterio que separa `arca.ts` de `arca-servidor.ts`.
  *
@@ -13,9 +13,13 @@
  * navegador y viaja entero en cada pregunta; no hay `conversacion` ni
  * `mensaje_ia` en el modelo, así que cerrar el panel lo olvida. Es la
  * decisión ya tomada para la v1, no un descuido.
+ *
+ * `input_schema` queda con ese nombre —y no `parametersJsonSchema`, como pide
+ * Gemini— a propósito: es JSON Schema puro, así que este archivo no sabe de
+ * qué proveedor se trata. El router lo traduce al campo que le hace falta.
  */
 
-/** Forma estructural del `Tool` de la API de Claude: sin importar el SDK acá. */
+/** Forma estructural de una herramienta, independiente del proveedor de IA. */
 export interface DefinicionDeHerramienta {
   name: string;
   description: string;
@@ -26,7 +30,7 @@ export interface DefinicionDeHerramienta {
   };
 }
 
-export const MODELO_DEL_ASISTENTE = 'claude-haiku-4-5-20251001';
+export const MODELO_DEL_ASISTENTE = 'gemini-2.5-flash';
 
 export const PROMPT_DEL_SISTEMA = `Sos el asistente de RIENDA, el sistema de gestión del Haras Las Lechuzas
 (pupilaje, enseñanza de equitación y eventos). Contestás en español rioplatense, corto y directo,

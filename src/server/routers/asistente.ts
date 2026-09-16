@@ -1,4 +1,12 @@
-import Anthropic from '@anthropic-ai/sdk';
+import {
+  type Content,
+  FunctionCallingConfigMode,
+  type FunctionDeclaration,
+  GoogleGenAI,
+  ApiError as GoogleApiError,
+  type Part,
+  createPartFromFunctionResponse,
+} from '@google/genai';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { crearRouter, procedimientoAdmin } from '../trpc';
@@ -20,6 +28,14 @@ import { routerPanel } from './panel';
  * Sin memoria entre sesiones (pendiente 11.2 del modelo): el historial lo
  * manda el navegador entero en cada pregunta y no se persiste nada acá.
  *
+ * **Por qué Gemini y no otro proveedor.** Decisión del grupo del 16/09/2026:
+ * el nivel gratuito de la API de Gemini (Google AI Studio) no tiene costo, a
+ * diferencia de la API de Anthropic —Claude Max, que ya se paga, es una
+ * suscripción distinta y no incluye créditos de API— ni de la de OpenAI. Si
+ * el nivel gratuito alguna vez no alcanza, sólo hay que cambiar este archivo:
+ * `lib/asistente.ts` (prompt, catálogo de herramientas, búsqueda) no sabe de
+ * qué proveedor se trata.
+ *
  * **Por qué el modelo no toca la base directo.** Dejar que una IA arme y
  * corra SQL libre sobre una base con datos personales y de menores es
  * exactamente el tipo de superficie que este sistema evita en todo lo demás:
@@ -37,16 +53,22 @@ const mensaje = z.object({
   texto: z.string().trim().min(1).max(4000),
 });
 
-function clienteAnthropic(): Anthropic {
-  const clave = process.env.ANTHROPIC_API_KEY;
+function clienteGemini(): GoogleGenAI {
+  const clave = process.env.GEMINI_API_KEY;
   if (!clave) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
-      message: 'Falta ANTHROPIC_API_KEY en este entorno: sin credencial no se puede consultar al asistente.',
+      message: 'Falta GEMINI_API_KEY en este entorno: sin credencial no se puede consultar al asistente.',
     });
   }
-  return new Anthropic({ apiKey: clave });
+  return new GoogleGenAI({ apiKey: clave });
 }
+
+const DECLARACIONES: FunctionDeclaration[] = HERRAMIENTAS.map((h) => ({
+  name: h.name,
+  description: h.description,
+  parametersJsonSchema: h.input_schema,
+}));
 
 /**
  * Ejecuta una herramienta contra el mismo router que usa su pantalla, con el
@@ -110,61 +132,69 @@ export const routerAsistente = crearRouter({
   preguntar: procedimientoAdmin
     .input(z.object({ mensajes: z.array(mensaje).min(1).max(40) }))
     .mutation(async ({ ctx, input }) => {
-      const client = clienteAnthropic();
+      const ai = clienteGemini();
 
-      const mensajes: Anthropic.MessageParam[] = input.mensajes.map((m) => ({
-        role: m.rol === 'usuario' ? 'user' : 'assistant',
-        content: m.texto,
+      const contents: Content[] = input.mensajes.map((m) => ({
+        role: m.rol === 'usuario' ? 'user' : 'model',
+        parts: [{ text: m.texto }],
       }));
 
       const herramientasUsadas = new Set<string>();
 
       for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
-        let respuesta: Anthropic.Message;
+        let respuesta: Awaited<ReturnType<typeof ai.models.generateContent>>;
         try {
-          respuesta = await client.messages.create({
+          respuesta = await ai.models.generateContent({
             model: MODELO_DEL_ASISTENTE,
-            max_tokens: MAX_TOKENS_DE_RESPUESTA,
-            system: PROMPT_DEL_SISTEMA,
-            tools: HERRAMIENTAS as Anthropic.Tool[],
-            messages: mensajes,
+            contents,
+            config: {
+              systemInstruction: PROMPT_DEL_SISTEMA,
+              maxOutputTokens: MAX_TOKENS_DE_RESPUESTA,
+              tools: [{ functionDeclarations: DECLARACIONES }],
+              toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
+            },
           });
         } catch (e) {
-          if (e instanceof Anthropic.AuthenticationError) {
-            throw new TRPCError({ code: 'BAD_REQUEST', message: 'ANTHROPIC_API_KEY no es válida.' });
-          }
-          if (e instanceof Anthropic.RateLimitError) {
-            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'El asistente está saturado. Probá de nuevo en un momento.' });
+          if (e instanceof GoogleApiError) {
+            if (e.status === 401 || e.status === 403) {
+              throw new TRPCError({ code: 'BAD_REQUEST', message: 'GEMINI_API_KEY no es válida.' });
+            }
+            if (e.status === 429) {
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'El asistente está saturado (límite del nivel gratuito). Probá de nuevo en un momento.',
+              });
+            }
           }
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No se pudo consultar al asistente.' });
         }
 
-        if (respuesta.stop_reason !== 'tool_use') {
-          const texto = respuesta.content
-            .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-            .map((b) => b.text)
-            .join('\n')
-            .trim();
+        const pedidos = respuesta.functionCalls ?? [];
+
+        if (pedidos.length === 0) {
+          const texto = (respuesta.text ?? '').trim();
           return { texto: texto || 'No tengo una respuesta para eso.', herramientas: [...herramientasUsadas] };
         }
 
-        mensajes.push({ role: 'assistant', content: respuesta.content });
+        const turnoDelModelo = respuesta.candidates?.[0]?.content;
+        if (turnoDelModelo) contents.push(turnoDelModelo);
 
-        const pedidos = respuesta.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
-        const resultados = await Promise.all(
-          pedidos.map(async (pedido): Promise<Anthropic.ToolResultBlockParam> => {
-            herramientasUsadas.add(pedido.name);
+        const partesDeRespuesta: Part[] = await Promise.all(
+          pedidos.map(async (pedido): Promise<Part> => {
+            const nombre = pedido.name ?? '';
+            herramientasUsadas.add(nombre);
+            const id = pedido.id ?? nombre;
             try {
-              const salida = await ejecutarHerramienta(ctx, pedido.name, pedido.input as Record<string, unknown>);
-              return { type: 'tool_result', tool_use_id: pedido.id, content: JSON.stringify(salida ?? null) };
+              const salida = await ejecutarHerramienta(ctx, nombre, pedido.args ?? {});
+              return createPartFromFunctionResponse(id, nombre, { output: salida ?? null });
             } catch (e) {
               const detalle = e instanceof TRPCError ? e.message : 'No se pudo completar la consulta.';
-              return { type: 'tool_result', tool_use_id: pedido.id, content: detalle, is_error: true };
+              return createPartFromFunctionResponse(id, nombre, { error: detalle });
             }
           }),
         );
 
-        mensajes.push({ role: 'user', content: resultados });
+        contents.push({ role: 'user', parts: partesDeRespuesta });
       }
 
       return {
