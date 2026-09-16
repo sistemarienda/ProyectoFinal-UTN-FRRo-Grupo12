@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { TRPCError } from '@trpc/server';
 import { llamador } from '@/lib/trpc/servidor';
-import { MOMENTOS, type Momento, ocurrenciaDelMomento } from '@/lib/bienestar';
+import { type FilaDeCuidado, filasDeFormulario } from '@/lib/bienestar';
 
 /**
  * Registrar una tanda de cuidados tiene un final que el `ResultadoDeGuardado`
@@ -19,56 +19,6 @@ export type ResultadoDeTanda =
   | { estado: 'ok'; registrados: number; repetidos: number }
   | { estado: 'error'; mensaje: string };
 
-function texto(datos: FormData, campo: string): string {
-  return String(datos.get(campo) ?? '').trim();
-}
-
-function numeroOpcional(datos: FormData, campo: string): number | null {
-  const crudo = texto(datos, campo).replace(',', '.');
-  if (crudo === '') return null;
-  const n = Number.parseFloat(crudo);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-/**
- * Arma las filas a partir del formulario.
- *
- * Los campos vienen con el identificador de la fila en el nombre, así que la
- * lista de cuáles se marcaron viaja aparte en `filas`: sin ella habría que
- * adivinar qué claves del `FormData` son registros y cuáles no. Es el mismo
- * mecanismo que usa la planilla de asistencia.
- */
-function filasDelFormulario(datos: FormData) {
-  const ahora = new Date().toISOString();
-
-  // Cuándo pasó lo que se está registrando. El formulario manda el momento y la
-  // fecha de la planilla; de ahí sale el instante, que no es el del envío
-  // salvo que se esté cargando dentro del mismo momento. Ver
-  // `ocurrenciaDelMomento`: sin esto, la toma de la mañana cargada a la tarde
-  // quedaba contada como la del mediodía.
-  const momento = MOMENTOS.find((m) => m === texto(datos, 'momento'));
-  const fecha = texto(datos, 'fecha');
-  const ocurridoEn =
-    momento && fecha ? ocurrenciaDelMomento(momento as Momento, fecha) : ahora;
-
-  return texto(datos, 'filas')
-    .split(',')
-    .filter(Boolean)
-    .filter((clave) => texto(datos, `hacer-${clave}`) === 'si')
-    .map((clave) => ({
-      // El identificador lo genera el dispositivo (decisión 1.6). Viaja en un
-      // campo oculto que el formulario completó al dibujarse.
-      id: texto(datos, `id-${clave}`),
-      caballoId: texto(datos, `caballo-${clave}`) || null,
-      instalacionId: texto(datos, `instalacion-${clave}`) || null,
-      ocurridoEn,
-      registradoEn: ahora,
-      observaciones: texto(datos, `obs-${clave}`) || undefined,
-      insumoId: texto(datos, `insumo-${clave}`) || null,
-      cantidad: numeroOpcional(datos, `cantidad-${clave}`),
-    }));
-}
-
 function refrescarCampo() {
   revalidatePath('/campo/hoy');
   revalidatePath('/campo/alimentacion');
@@ -80,7 +30,7 @@ export async function registrarAlimentacion(
   _previo: ResultadoDeTanda,
   datos: FormData,
 ): Promise<ResultadoDeTanda> {
-  const registros = filasDelFormulario(datos);
+  const registros = filasDeFormulario(datos);
   if (registros.length === 0) {
     return { estado: 'error', mensaje: 'No hay ningún caballo marcado.' };
   }
@@ -105,7 +55,7 @@ export async function registrarHigiene(
   _previo: ResultadoDeTanda,
   datos: FormData,
 ): Promise<ResultadoDeTanda> {
-  const registros = filasDelFormulario(datos);
+  const registros = filasDeFormulario(datos);
   if (registros.length === 0) {
     return { estado: 'error', mensaje: 'No hay ningún box marcado.' };
   }
@@ -129,4 +79,65 @@ export async function registrarHigiene(
     if (e instanceof TRPCError) return { estado: 'error', mensaje: e.message };
     return { estado: 'error', mensaje: 'No se pudo registrar la higiene.' };
   }
+}
+
+/** Lo que llega de `offline-db` a sincronizar: la fila más el tipo de planilla que la encoló. */
+export interface PendienteASincronizar extends FilaDeCuidado {
+  claveDeCola: string;
+  tipo: 'alimentacion' | 'higiene';
+}
+
+export interface ResultadoDeSincronizacion {
+  sincronizadas: string[]; // claveDeCola de lo que ya se puede quitar de la cola
+  fallidas: { claveDeCola: string; mensaje: string }[];
+}
+
+/**
+ * M14 · Vacía la cola offline contra los mismos procedimientos que usa el
+ * envío en línea.
+ *
+ * Se agrupa por tipo porque `registrarAlimentacion`/`registrarHigiene` reciben
+ * la tanda entera de una vez, y se agrupa **todo o nada por grupo**: si un
+ * `insert` de varias filas fallara a mitad de camino dejaría algunas filas
+ * escritas y otras no sin forma de saber cuáles, así que ante un error se
+ * marca fallido el grupo completo para reintentarlo entero en la próxima
+ * vuelta, en lugar de arriesgar un estado a medias que nadie audita.
+ */
+export async function sincronizarPendientes(
+  pendientes: readonly PendienteASincronizar[],
+): Promise<ResultadoDeSincronizacion> {
+  const sincronizadas: string[] = [];
+  const fallidas: { claveDeCola: string; mensaje: string }[] = [];
+
+  const deAlimentacion = pendientes.filter((p) => p.tipo === 'alimentacion');
+  const deHigiene = pendientes.filter((p) => p.tipo === 'higiene');
+
+  if (deAlimentacion.length > 0) {
+    try {
+      const api = await llamador();
+      await api.registroCuidado.registrarAlimentacion({
+        registros: deAlimentacion.map((p) => ({ ...p, caballoId: p.caballoId! })),
+      });
+      sincronizadas.push(...deAlimentacion.map((p) => p.claveDeCola));
+    } catch (e) {
+      const mensaje = e instanceof TRPCError ? e.message : 'No se pudo sincronizar la alimentación.';
+      fallidas.push(...deAlimentacion.map((p) => ({ claveDeCola: p.claveDeCola, mensaje })));
+    }
+  }
+
+  if (deHigiene.length > 0) {
+    try {
+      const api = await llamador();
+      await api.registroCuidado.registrarHigiene({
+        registros: deHigiene.map((p) => ({ ...p, instalacionId: p.instalacionId! })),
+      });
+      sincronizadas.push(...deHigiene.map((p) => p.claveDeCola));
+    } catch (e) {
+      const mensaje = e instanceof TRPCError ? e.message : 'No se pudo sincronizar la higiene.';
+      fallidas.push(...deHigiene.map((p) => ({ claveDeCola: p.claveDeCola, mensaje })));
+    }
+  }
+
+  if (sincronizadas.length > 0) refrescarCampo();
+  return { sincronizadas, fallidas };
 }

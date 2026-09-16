@@ -1,8 +1,12 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
-import { CheckCircle, Circle, WarningCircle } from '@phosphor-icons/react';
+import { type FormEvent, useActionState, useMemo, useState } from 'react';
+import { CheckCircle, Circle, WarningCircle, WifiSlash } from '@phosphor-icons/react';
 import { BotonEnviar } from '../../botones';
+import { avisarCambioDeCola } from '../../estado-conexion';
+import { filasDeFormulario } from '@/lib/bienestar';
+import { debeEncolarse } from '@/lib/offline';
+import { encolar } from '@/lib/offline-db';
 import { type ResultadoDeTanda, registrarAlimentacion } from '../acciones';
 
 export interface TareaVisible {
@@ -58,6 +62,7 @@ export function PlanillaDeAlimentacion({
   const pendientes = useMemo(() => tareas.filter((t) => !t.hecho), [tareas]);
   const [salteados, setSalteados] = useState<ReadonlySet<string>>(new Set());
   const [resultado, accion] = useActionState(registrarAlimentacion, inicial);
+  const [encolado, setEncolado] = useState<number | null>(null);
 
   // Un identificador por fila y por render de la pantalla. `useMemo` sobre los
   // pendientes: si la lista no cambia, los identificadores tampoco, y reenviar
@@ -79,8 +84,30 @@ export function PlanillaDeAlimentacion({
     );
   }
 
+  /**
+   * M14 · Si no hay señal, la toma no se pierde: se guarda en el dispositivo
+   * y se sube sola cuando vuelva la conexión (`estado-conexion.tsx`).
+   *
+   * Sólo mira `navigator.onLine`: una wifi cautiva que se declara en línea y
+   * no llega a ningún lado queda fuera de esta versión, documentado en
+   * `debeEncolarse`.
+   */
+  async function alEnviar(evento: FormEvent<HTMLFormElement>) {
+    if (!debeEncolarse(navigator.onLine)) return; // sigue como envío normal
+
+    evento.preventDefault();
+    const filas = filasDeFormulario(new FormData(evento.currentTarget)).filter(
+      (f): f is typeof f & { caballoId: string } => f.caballoId !== null,
+    );
+    if (filas.length === 0) return;
+
+    await encolar('alimentacion', filas);
+    avisarCambioDeCola();
+    setEncolado(filas.length);
+  }
+
   return (
-    <form action={accion} className="mt-4">
+    <form action={accion} onSubmit={alEnviar} className="mt-4">
       <input type="hidden" name="filas" value={pendientes.map((t) => t.caballoId).join(',')} />
       <input type="hidden" name="momento" value={momento} />
       <input type="hidden" name="fecha" value={fecha} />
@@ -176,6 +203,13 @@ export function PlanillaDeAlimentacion({
         })}
       </ul>
 
+      {encolado !== null && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-warn">
+          <WifiSlash size={16} className="shrink-0" aria-hidden="true" />
+          Sin conexión: {encolado === 1 ? '1 registro guardado' : `${encolado} registros guardados`} en el
+          dispositivo. Se suben solos cuando vuelva la señal.
+        </p>
+      )}
       {resultado.estado === 'error' && <p className="error mt-3">{resultado.mensaje}</p>}
       {resultado.estado === 'ok' && (
         <p className="mt-3 text-sm text-ok">

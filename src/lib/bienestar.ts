@@ -370,3 +370,74 @@ export function rotacionDeDroga(eventos: readonly DesparasitacionComputable[]): 
     .sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
     .map((e) => e.producto!.trim());
 }
+
+// -----------------------------------------------------------------------------
+// M14 · Lo que arma la planilla, del lado de acá y del otro
+//
+// `filasDeFormulario` lee el mismo `FormData` de la planilla de alimentación o
+// de higiene y arma las filas que espera `registroCuidado`. Es pura a
+// propósito: la usa `campo/acciones.ts` (servidor, con conexión) para el envío
+// normal, y la usa el mismo componente de planilla (navegador, sin conexión)
+// para encolar en `offline-db` cuando `navigator.onLine` es falso. Las dos
+// vías tienen que armar exactamente la misma fila o la cola desincroniza el
+// registro que reintenta de la que se mandó al toque.
+// -----------------------------------------------------------------------------
+
+export interface FilaDeCuidado {
+  id: string;
+  caballoId: string | null;
+  instalacionId: string | null;
+  ocurridoEn: string;
+  registradoEn: string;
+  observaciones?: string;
+  insumoId: string | null;
+  cantidad: number | null;
+}
+
+function textoDeCampo(datos: FormData, campo: string): string {
+  return String(datos.get(campo) ?? '').trim();
+}
+
+function numeroOpcionalDeCampo(datos: FormData, campo: string): number | null {
+  const crudo = textoDeCampo(datos, campo).replace(',', '.');
+  if (crudo === '') return null;
+  const n = Number.parseFloat(crudo);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Arma las filas a partir del formulario.
+ *
+ * Los campos vienen con el identificador de la fila en el nombre, así que la
+ * lista de cuáles se marcaron viaja aparte en `filas`: sin ella habría que
+ * adivinar qué claves del `FormData` son registros y cuáles no. Es el mismo
+ * mecanismo que usa la planilla de asistencia.
+ *
+ * `momento`/`fecha` sólo los manda la planilla de alimentación (decisión
+ * "cuándo ocurrió" de `ocurrenciaDelMomento`); la de higiene no tiene turnos y
+ * cae directo en `ahora`.
+ */
+export function filasDeFormulario(datos: FormData, ahora: Date = new Date()): FilaDeCuidado[] {
+  const instante = ahora.toISOString();
+
+  const momento = MOMENTOS.find((m) => m === textoDeCampo(datos, 'momento'));
+  const fecha = textoDeCampo(datos, 'fecha');
+  const ocurridoEn = momento && fecha ? ocurrenciaDelMomento(momento, fecha, ahora) : instante;
+
+  return textoDeCampo(datos, 'filas')
+    .split(',')
+    .filter(Boolean)
+    .filter((clave) => textoDeCampo(datos, `hacer-${clave}`) === 'si')
+    .map((clave) => ({
+      // El identificador lo genera el dispositivo (decisión 1.6). Viaja en un
+      // campo oculto que el formulario completó al dibujarse.
+      id: textoDeCampo(datos, `id-${clave}`),
+      caballoId: textoDeCampo(datos, `caballo-${clave}`) || null,
+      instalacionId: textoDeCampo(datos, `instalacion-${clave}`) || null,
+      ocurridoEn,
+      registradoEn: instante,
+      observaciones: textoDeCampo(datos, `obs-${clave}`) || undefined,
+      insumoId: textoDeCampo(datos, `insumo-${clave}`) || null,
+      cantidad: numeroOpcionalDeCampo(datos, `cantidad-${clave}`),
+    }));
+}

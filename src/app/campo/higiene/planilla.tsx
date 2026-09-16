@@ -1,8 +1,12 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
-import { CheckCircle, Circle } from '@phosphor-icons/react';
+import { type FormEvent, useActionState, useMemo, useState } from 'react';
+import { CheckCircle, Circle, WifiSlash } from '@phosphor-icons/react';
 import { BotonEnviar } from '../../botones';
+import { avisarCambioDeCola } from '../../estado-conexion';
+import { filasDeFormulario } from '@/lib/bienestar';
+import { debeEncolarse } from '@/lib/offline';
+import { encolar } from '@/lib/offline-db';
 import { type ResultadoDeTanda, registrarHigiene } from '../acciones';
 
 export interface BoxVisible {
@@ -49,6 +53,7 @@ export function PlanillaDeHigiene({
 }) {
   const [elegidos, setElegidos] = useState<ReadonlySet<string>>(new Set());
   const [resultado, accion] = useActionState(registrarHigiene, inicial);
+  const [encolado, setEncolado] = useState<number | null>(null);
 
   // Un identificador por box y por render (decisión 1.6): lo genera el
   // dispositivo, no el servidor, y viaja oculto con el formulario.
@@ -69,8 +74,23 @@ export function PlanillaDeHigiene({
     return <p className="card mt-4 p-6 text-center text-muted">No hay boxes activos registrados.</p>;
   }
 
+  /** M14 · Ver el comentario homólogo en `campo/alimentacion/planilla.tsx`. */
+  async function alEnviar(evento: FormEvent<HTMLFormElement>) {
+    if (!debeEncolarse(navigator.onLine)) return;
+
+    evento.preventDefault();
+    const filas = filasDeFormulario(new FormData(evento.currentTarget)).filter(
+      (f): f is typeof f & { instalacionId: string } => f.instalacionId !== null,
+    );
+    if (filas.length === 0) return;
+
+    await encolar('higiene', filas);
+    avisarCambioDeCola();
+    setEncolado(filas.length);
+  }
+
   return (
-    <form action={accion} className="mt-4">
+    <form action={accion} onSubmit={alEnviar} className="mt-4">
       <input type="hidden" name="filas" value={[...elegidos].join(',')} />
 
       <ul className="space-y-2">
@@ -157,6 +177,13 @@ export function PlanillaDeHigiene({
         })}
       </ul>
 
+      {encolado !== null && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-warn">
+          <WifiSlash size={16} className="shrink-0" aria-hidden="true" />
+          Sin conexión: {encolado === 1 ? '1 box guardado' : `${encolado} boxes guardados`} en el dispositivo. Se
+          suben solos cuando vuelva la señal.
+        </p>
+      )}
       {resultado.estado === 'error' && <p className="error mt-3">{resultado.mensaje}</p>}
       {resultado.estado === 'ok' && (
         <p className="mt-3 text-sm text-ok">

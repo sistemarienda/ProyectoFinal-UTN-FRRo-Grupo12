@@ -6,6 +6,7 @@ import {
   clasificarVencimiento,
   diasEntre,
   fechaCorrida,
+  filasDeFormulario,
   momentoDe,
   ocurrenciaDelMomento,
   planVigenteEn,
@@ -342,5 +343,61 @@ describe('rotacionDeDroga', () => {
         { fecha: '2026-06-01', estado: 'aplicado', producto: null },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe('filasDeFormulario', () => {
+  function formularioDeAlimentacion() {
+    const datos = new FormData();
+    datos.set('filas', 'a,b');
+    datos.set('momento', 'manana');
+    datos.set('fecha', '2026-09-16');
+    datos.set('id-a', 'reg-a');
+    datos.set('caballo-a', 'caballo-a');
+    datos.set('hacer-a', 'si');
+    datos.set('cantidad-a', '4,5');
+    datos.set('obs-a', 'comió todo');
+    datos.set('insumo-a', 'insumo-1');
+    datos.set('id-b', 'reg-b');
+    datos.set('caballo-b', 'caballo-b');
+    datos.set('hacer-b', 'no'); // salteado: no debe salir en el resultado
+    return datos;
+  }
+
+  it('arma sólo las filas marcadas para hacer, con la coma decimal convertida', () => {
+    const filas = filasDeFormulario(formularioDeAlimentacion(), new Date('2026-09-16T14:00:00Z'));
+
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({
+      id: 'reg-a',
+      caballoId: 'caballo-a',
+      instalacionId: null,
+      insumoId: 'insumo-1',
+      cantidad: 4.5,
+      observaciones: 'comió todo',
+    });
+  });
+
+  it('usa `ocurrenciaDelMomento` cuando vienen momento y fecha, y "ahora" cuando no', () => {
+    const ahora = new Date('2026-09-16T14:00:00Z');
+    const conMomento = filasDeFormulario(formularioDeAlimentacion(), ahora);
+    expect(conMomento[0]!.ocurridoEn).toBe(ocurrenciaDelMomento('manana', '2026-09-16', ahora));
+
+    const datosDeHigiene = new FormData();
+    datosDeHigiene.set('filas', 'box-1');
+    datosDeHigiene.set('id-box-1', 'reg-1');
+    datosDeHigiene.set('instalacion-box-1', 'inst-1');
+    datosDeHigiene.set('caballo-box-1', '');
+    datosDeHigiene.set('hacer-box-1', 'si');
+
+    const sinMomento = filasDeFormulario(datosDeHigiene, ahora);
+    expect(sinMomento[0]).toMatchObject({ caballoId: null, instalacionId: 'inst-1', ocurridoEn: ahora.toISOString() });
+  });
+
+  it('sin filas marcadas, devuelve una lista vacía', () => {
+    const datos = new FormData();
+    datos.set('filas', 'a');
+    datos.set('hacer-a', 'no');
+    expect(filasDeFormulario(datos)).toEqual([]);
   });
 });

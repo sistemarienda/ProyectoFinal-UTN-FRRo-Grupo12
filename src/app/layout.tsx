@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Fraunces, Inter } from 'next/font/google';
 import { Armazon } from './armazon';
+import { RegistrarServiceWorker } from './registrar-sw';
 import './globals.css';
 
 /**
@@ -36,6 +37,9 @@ export const metadata: Metadata = {
   // El sistema maneja datos personales y de menores: no tiene nada que hacer en
   // un buscador.
   robots: { index: false, follow: false },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'RIENDA' },
+  icons: { apple: '/apple-touch-icon.png' },
 };
 
 export const viewport: Viewport = {
@@ -49,6 +53,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="es-AR" className={`${fraunces.variable} ${inter.variable}`}>
       <body className="font-sans antialiased">
+        <RegistrarServiceWorker />
         <Armazon>{children}</Armazon>
       </body>
     </html>

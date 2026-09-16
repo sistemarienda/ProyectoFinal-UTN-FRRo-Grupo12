@@ -3,6 +3,7 @@ import { llamador } from '@/lib/trpc/servidor';
 import { Sidebar } from './sidebar';
 import { BarraSuperior } from './barra-superior';
 import { NavPortal } from './portal/nav-portal';
+import { EstadoDeConexion } from './estado-conexion';
 
 /**
  * Sidebar y cabecera comparten la misma sesión, así que se resuelve una sola
@@ -42,7 +43,17 @@ export async function Armazon({ children }: { children: ReactNode }) {
       <Sidebar areas={sesion.areas} />
       <div className="flex min-w-0 flex-1 flex-col">
         <BarraSuperior nombre={sesion.nombre} apellido={sesion.apellido} rol={sesion.rol} />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          {/* M14: el banner de conexión es cosa del personal de campo, que es
+              quien trabaja sin señal. El dueño opera desde una PC con
+              conexión y no tiene una cola que mirar. */}
+          {(sesion.rol === 'peon' || sesion.rol === 'instructor') && (
+            <div className="px-4 pt-4 md:px-8 md:pt-6">
+              <EstadoDeConexion />
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );
