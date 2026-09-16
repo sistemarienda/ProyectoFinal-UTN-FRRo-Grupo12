@@ -65,11 +65,34 @@ const uno = async (tabla, fila, etiqueta = tabla) =>
 // migración de configuración inicial, y la identidad fiscal con su punto de
 // venta, que llevan el CUIT real con el que M6 emite contra homologación.
 // `auditoria` no se toca: una regla impide borrarla, y está bien que la tenga.
+//
+// Por la misma razón, ningún `usuario` que la auditoría referencie se puede
+// borrar tampoco (`auditoria_usuario_id_fkey`): cualquier instructor o peón de
+// demostración que haya llegado a tocar algo en una corrida anterior queda
+// pisado ahí para siempre, no es un caso aislado. En vez de mantener a mano
+// una lista de excepciones que se queda vieja, se calcula sola: se protege a
+// todo el que la auditoría ya citó, y `crearUsuario`/`crearAccesoParaPersona`
+// reutilizan esa persona en lugar de intentar crear una nueva con el mismo
+// documento.
 // -----------------------------------------------------------------------------
-const PERSONAS_QUE_QUEDAN = [
+const PROTEGIDOS_FIJOS = [
   '7d93c1c4-4fce-487d-aba6-45ccbd3e1dc3', // Bruno Neirotti, la sesión con la que se entra
   '12614f36-c1aa-46de-b02e-f0ca9b13099c', // usuario inactivo que la auditoría referencia
 ];
+
+const usuariosAuditados = [
+  ...new Set(
+    revisar('auditoria', await db.from('auditoria').select('usuario_id').not('usuario_id', 'is', null)).map(
+      (a) => a.usuario_id,
+    ),
+  ),
+];
+const personasDeAuditados = usuariosAuditados.length
+  ? revisar('usuario (auditados)', await db.from('usuario').select('persona_id').in('id', usuariosAuditados)).map(
+      (u) => u.persona_id,
+    )
+  : [];
+const PERSONAS_QUE_QUEDAN = [...new Set([...PROTEGIDOS_FIJOS, ...personasDeAuditados])];
 
 for (const tabla of [
   'asistencia', 'inscripcion', 'clase', 'inscripcion_evento', 'evento', 'mensaje',
@@ -89,8 +112,20 @@ for (const tabla of [
     process.exit(1);
   }
 }
-await db.from('usuario').delete().not('persona_id', 'in', `(${PERSONAS_QUE_QUEDAN.join(',')})`);
-await db.from('persona').delete().not('id', 'in', `(${PERSONAS_QUE_QUEDAN.join(',')})`);
+{
+  const { error } = await db.from('usuario').delete().not('persona_id', 'in', `(${PERSONAS_QUE_QUEDAN.join(',')})`);
+  if (error) {
+    console.error('FALLO limpiando usuario:', error.message);
+    process.exit(1);
+  }
+}
+{
+  const { error } = await db.from('persona').delete().not('id', 'in', `(${PERSONAS_QUE_QUEDAN.join(',')})`);
+  if (error) {
+    console.error('FALLO limpiando persona:', error.message);
+    process.exit(1);
+  }
+}
 console.log('base limpia');
 
 // -----------------------------------------------------------------------------
@@ -136,13 +171,32 @@ async function crearAccesoParaPersona({ personaId, documento, email, rol }) {
     id = previa.id;
   }
 
-  await uno('usuario', { id, persona_id: personaId, rol });
+  // `upsert` y no `insert`: si esta persona quedó protegida por la auditoría
+  // (arriba), su fila de `usuario` sobrevivió a la limpieza y ya existe.
+  await revisar('usuario', await db.from('usuario').upsert({ id, persona_id: personaId, rol }, { onConflict: 'id' }));
   console.log(`  ${rol.padEnd(12)} ${email.padEnd(40)} clave: ${clave}`);
   return id;
 }
 
+/**
+ * Igual que `uno('persona', ...)`, pero por `upsert` sobre `persona_documento_unico`:
+ * si el documento ya existe —porque la limpieza no pudo borrarlo, protegido
+ * por la auditoría— se actualiza esa fila en lugar de chocar contra la
+ * restricción única.
+ */
+async function unaPersona(datos) {
+  return revisar(
+    'persona',
+    await db
+      .from('persona')
+      .upsert(datos, { onConflict: 'tipo_documento,numero_documento' })
+      .select()
+      .single(),
+  );
+}
+
 async function crearUsuario({ nombre, apellido, documento, email, rol, telefono, nacimiento }) {
-  const persona = await uno('persona', {
+  const persona = await unaPersona({
     nombre,
     apellido,
     tipo_documento: 'dni',
