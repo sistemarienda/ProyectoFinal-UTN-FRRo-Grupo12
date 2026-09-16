@@ -27,6 +27,7 @@ import { routerOrdenCompra } from './ordenCompra';
 import { routerPanel } from './panel';
 import { routerPortal } from './portal';
 import { routerEvento } from './evento';
+import { routerAsistente } from './asistente';
 import { alcanceDe } from '@/lib/roles';
 
 /**
@@ -111,6 +112,9 @@ export const routerApp = crearRouter({
 
   // --- M11 ---
   panel: routerPanel,
+
+  // --- M12 ---
+  asistente: routerAsistente,
 
   // --- M13 ---
   portal: routerPortal,

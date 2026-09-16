@@ -6,6 +6,7 @@ import { useTransition } from 'react';
 import { SignOut } from '@phosphor-icons/react';
 import { clienteDeNavegador } from '@/lib/supabase/navegador';
 import { Isotipo } from './marca';
+import { AsistenteIA } from './asistente-ia';
 
 const ROLES = {
   administrador: 'Administrador',
@@ -56,6 +57,8 @@ export function BarraSuperior({
           <span className="avatar" aria-hidden="true">{iniciales}</span>
           <span className="hidden text-sm font-medium text-fg sm:inline">{nombreCompleto}</span>
         </div>
+        {/* M12: panel «siempre accesible» del sitemap, sólo para el dueño. */}
+        {rol === 'administrador' && <AsistenteIA />}
         <button
           type="button"
           onClick={cerrarSesion}
