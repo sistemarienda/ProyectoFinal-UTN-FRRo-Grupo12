@@ -44,7 +44,9 @@ Reglas:
 - Los importes están en pesos argentinos. Redondeá a dos decimales y usá "$" adelante.
 - Si una búsqueda por nombre no encuentra a nadie, decilo en vez de suponer a quién se refería.
 - No das consejo veterinario, legal ni impositivo: mostrás lo que el sistema tiene registrado.
-- Sé breve. El administrador está en el medio de otra tarea y volvió a preguntarte algo puntual.`;
+- Sé breve. El administrador está en el medio de otra tarea y volvió a preguntarte algo puntual.
+- Texto plano, sin Markdown: nada de asteriscos para negrita ni viñetas con "*" o "-". El panel muestra
+  la respuesta tal cual, sin renderizarla. Para listar, usá renglones separados por salto de línea.`;
 
 export const HERRAMIENTAS: readonly DefinicionDeHerramienta[] = [
   {

@@ -142,9 +142,8 @@ export const routerAsistente = crearRouter({
       const herramientasUsadas = new Set<string>();
 
       for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
-        let respuesta: Awaited<ReturnType<typeof ai.models.generateContent>>;
-        try {
-          respuesta = await ai.models.generateContent({
+        const pedirAGemini = () =>
+          ai.models.generateContent({
             model: MODELO_DEL_ASISTENTE,
             contents,
             config: {
@@ -154,15 +153,29 @@ export const routerAsistente = crearRouter({
               toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
             },
           });
+
+        let respuesta: Awaited<ReturnType<typeof ai.models.generateContent>>;
+        try {
+          try {
+            respuesta = await pedirAGemini();
+          } catch (e) {
+            // 503: "alta demanda" del lado de Google, casi siempre pasajero (su propio
+            // mensaje lo dice) — vale un único reintento antes de rendirse.
+            if (e instanceof GoogleApiError && e.status === 503) {
+              respuesta = await pedirAGemini();
+            } else {
+              throw e;
+            }
+          }
         } catch (e) {
           if (e instanceof GoogleApiError) {
             if (e.status === 401 || e.status === 403) {
               throw new TRPCError({ code: 'BAD_REQUEST', message: 'GEMINI_API_KEY no es válida.' });
             }
-            if (e.status === 429) {
+            if (e.status === 429 || e.status === 503) {
               throw new TRPCError({
                 code: 'INTERNAL_SERVER_ERROR',
-                message: 'El asistente está saturado (límite del nivel gratuito). Probá de nuevo en un momento.',
+                message: 'El asistente está saturado. Probá de nuevo en un momento.',
               });
             }
           }
