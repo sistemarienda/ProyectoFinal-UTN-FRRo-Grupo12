@@ -286,20 +286,26 @@ const laPersona = (d) => ({
   ...d,
 });
 
-const personas = await insertar('persona', [
-  laPersona({ nombre: 'Marcela', apellido: 'Gutiérrez', numero_documento: '27418256', fecha_nacimiento: '1979-06-14', telefono: '+5493413001001', email: 'marcela.gutierrez@correo.demo', domicilio: 'Funes, Santa Fe' }),
-  laPersona({ nombre: 'Joaquín', apellido: 'Gutiérrez', numero_documento: '54120887', fecha_nacimiento: '2014-03-22' }),
-  laPersona({ nombre: 'Martina', apellido: 'Gutiérrez', numero_documento: '56330214', fecha_nacimiento: '2018-09-30' }),
+// `unaPersona` (upsert) y no `insertar` (insert liso): si Marcela o Lucía
+// llegaron a operar el portal (M13) en una corrida anterior, su persona quedó
+// protegida por la auditoría y sobrevivió a la limpieza — un insert liso
+// chocaría contra `persona_documento_unico` en la primera fila protegida.
+const personas = await Promise.all(
+  [
+    laPersona({ nombre: 'Marcela', apellido: 'Gutiérrez', numero_documento: '27418256', fecha_nacimiento: '1979-06-14', telefono: '+5493413001001', email: 'marcela.gutierrez@correo.demo', domicilio: 'Funes, Santa Fe' }),
+    laPersona({ nombre: 'Joaquín', apellido: 'Gutiérrez', numero_documento: '54120887', fecha_nacimiento: '2014-03-22' }),
+    laPersona({ nombre: 'Martina', apellido: 'Gutiérrez', numero_documento: '56330214', fecha_nacimiento: '2018-09-30' }),
 
-  laPersona({ nombre: 'Marcelo', apellido: 'Rossi', numero_documento: '25904113', fecha_nacimiento: '1977-01-09', telefono: '+5493413001002', email: 'marcelo.rossi@correo.demo', domicilio: 'Roldán, Santa Fe' }),
-  laPersona({ nombre: 'Tomás', apellido: 'Rossi', numero_documento: '52887340', fecha_nacimiento: '2012-07-11' }),
-  laPersona({ nombre: 'Valentina', apellido: 'Rossi', numero_documento: '55014992', fecha_nacimiento: '2015-11-25' }),
+    laPersona({ nombre: 'Marcelo', apellido: 'Rossi', numero_documento: '25904113', fecha_nacimiento: '1977-01-09', telefono: '+5493413001002', email: 'marcelo.rossi@correo.demo', domicilio: 'Roldán, Santa Fe' }),
+    laPersona({ nombre: 'Tomás', apellido: 'Rossi', numero_documento: '52887340', fecha_nacimiento: '2012-07-11' }),
+    laPersona({ nombre: 'Valentina', apellido: 'Rossi', numero_documento: '55014992', fecha_nacimiento: '2015-11-25' }),
 
-  laPersona({ nombre: 'Sofía', apellido: 'Ibáñez', numero_documento: '39204551', fecha_nacimiento: '1998-02-17', telefono: '+5493413001003', email: 'sofia.ibanez@correo.demo', domicilio: 'Rosario, Santa Fe' }),
-  laPersona({ nombre: 'Lucía', apellido: 'Pereyra', numero_documento: '33871402', fecha_nacimiento: '1992-08-05', telefono: '+5493413001004', email: 'lucia.pereyra@correo.demo', domicilio: 'Funes, Santa Fe' }),
-  laPersona({ nombre: 'Alejandro', apellido: 'Domínguez', numero_documento: '22106744', fecha_nacimiento: '1971-12-01', telefono: '+5493413001005', email: 'alejandro.dominguez@correo.demo', domicilio: 'Rosario, Santa Fe' }),
-  laPersona({ nombre: 'Elena', apellido: 'Ferrari', numero_documento: '28455901', fecha_nacimiento: '1981-05-19', telefono: '+5493413001006', email: 'contacto@lamedialuna.demo', domicilio: 'Roldán, Santa Fe' }),
-]);
+    laPersona({ nombre: 'Sofía', apellido: 'Ibáñez', numero_documento: '39204551', fecha_nacimiento: '1998-02-17', telefono: '+5493413001003', email: 'sofia.ibanez@correo.demo', domicilio: 'Rosario, Santa Fe' }),
+    laPersona({ nombre: 'Lucía', apellido: 'Pereyra', numero_documento: '33871402', fecha_nacimiento: '1992-08-05', telefono: '+5493413001004', email: 'lucia.pereyra@correo.demo', domicilio: 'Funes, Santa Fe' }),
+    laPersona({ nombre: 'Alejandro', apellido: 'Domínguez', numero_documento: '22106744', fecha_nacimiento: '1971-12-01', telefono: '+5493413001005', email: 'alejandro.dominguez@correo.demo', domicilio: 'Rosario, Santa Fe' }),
+    laPersona({ nombre: 'Elena', apellido: 'Ferrari', numero_documento: '28455901', fecha_nacimiento: '1981-05-19', telefono: '+5493413001006', email: 'contacto@lamedialuna.demo', domicilio: 'Roldán, Santa Fe' }),
+  ].map((d) => unaPersona(d)),
+);
 const per = Object.fromEntries(personas.map((p) => [`${p.nombre} ${p.apellido}`, p.id]));
 console.log(`personas: ${personas.length}`);
 
