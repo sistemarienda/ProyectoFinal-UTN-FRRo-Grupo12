@@ -166,6 +166,7 @@ export const routerAsistente = crearRouter({
               });
             }
           }
+          console.error('asistente.preguntar: falló generateContent', e);
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No se pudo consultar al asistente.' });
         }
 
