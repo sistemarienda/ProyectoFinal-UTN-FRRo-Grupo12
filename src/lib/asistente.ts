@@ -30,7 +30,9 @@ export interface DefinicionDeHerramienta {
   };
 }
 
-export const MODELO_DEL_ASISTENTE = 'gemini-2.5-flash';
+// `gemini-2.5-flash` quedó deprecado para cuentas nuevas (17/09/2026); Google
+// redirige a esta familia en el propio mensaje de error del 404.
+export const MODELO_DEL_ASISTENTE = 'gemini-3.6-flash';
 
 export const PROMPT_DEL_SISTEMA = `Sos el asistente de RIENDA, el sistema de gestión del Haras Las Lechuzas
 (pupilaje, enseñanza de equitación y eventos). Contestás en español rioplatense, corto y directo,
