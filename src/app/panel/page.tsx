@@ -79,7 +79,7 @@ export default async function Panel() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <EvolucionFacturacion puntos={evolucion} />
         </div>
 
@@ -121,7 +121,7 @@ export default async function Panel() {
       </div>
 
       <div className="card mt-6 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-surface-border px-5 py-3">
+        <div className="flex items-center justify-between gap-3 border-b border-surface-border px-5 py-3">
           <h2 className="font-serif text-lg">Cuentas corrientes — mayor saldo</h2>
           <Link href="/cobranza" className="link text-sm">
             Ver todas

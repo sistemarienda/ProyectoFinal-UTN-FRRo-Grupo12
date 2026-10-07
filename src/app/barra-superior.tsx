@@ -7,6 +7,8 @@ import { SignOut } from '@phosphor-icons/react';
 import { clienteDeNavegador } from '@/lib/supabase/navegador';
 import { Isotipo } from './marca';
 import { AsistenteIA } from './asistente-ia';
+import { MenuMovil } from './menu-movil';
+import type { Area } from '@/lib/roles';
 
 const ROLES = {
   administrador: 'Administrador',
@@ -20,12 +22,15 @@ export function BarraSuperior({
   apellido,
   rol,
   conMarca = false,
+  areas,
 }: {
   nombre: string | null;
   apellido: string | null;
   rol: keyof typeof ROLES;
   /** El portal no tiene sidebar: sin esto, la marca no aparece en ningún lado. */
   conMarca?: boolean;
+  /** Áreas del personal: habilitan el menú del celular. El portal no lo lleva. */
+  areas?: readonly Area[];
 }) {
   const router = useRouter();
   const [saliendo, iniciarTransicion] = useTransition();
@@ -50,7 +55,10 @@ export function BarraSuperior({
           <span className="font-serif text-lg">RIENDA</span>
         </Link>
       ) : (
-        <span className="text-sm text-fg-muted">{ROLES[rol]}</span>
+        <div className="flex items-center gap-2">
+          {areas && <MenuMovil areas={areas} />}
+          <span className="text-sm text-fg-muted">{ROLES[rol]}</span>
+        </div>
       )}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">

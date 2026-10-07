@@ -36,7 +36,7 @@ export function EvolucionFacturacion({ puntos }: { puntos: PuntoDeFacturacion[] 
 
   if (puntos.length === 0 || !hayDatos) {
     return (
-      <section className="card p-5">
+      <section className="card min-w-0 p-5">
         <h2 className="mb-1 font-serif text-lg text-fg">Facturación · evolución</h2>
         <p className="text-sm text-fg-muted">Todavía no hay cargos generados como para dibujar la serie.</p>
       </section>
@@ -53,7 +53,7 @@ export function EvolucionFacturacion({ puntos }: { puntos: PuntoDeFacturacion[] 
   const descripcion = puntos.map((p) => `${mesCorto(p.periodo)}: ${formatoCompacto(p.total)}`).join(', ');
 
   return (
-    <section className="card p-5">
+    <section className="card min-w-0 p-5">
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="font-serif text-lg text-fg">Facturación · evolución</h2>
         <span className="text-xs text-fg-muted">últimos {puntos.length} meses</span>
@@ -61,7 +61,7 @@ export function EvolucionFacturacion({ puntos }: { puntos: PuntoDeFacturacion[] 
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${ANCHO} ${ALTO}`}
-          className="w-full min-w-[480px]"
+          className="grafico-svg w-full"
           role="img"
           aria-label={`Evolución de la facturación de ${meses}. ${descripcion}.`}
         >

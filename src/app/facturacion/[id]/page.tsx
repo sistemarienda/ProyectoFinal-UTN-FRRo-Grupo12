@@ -40,7 +40,7 @@ export default async function ComprobanteDetalle({ params }: PageProps<'/factura
 
   return (
     <div className="mx-auto max-w-2xl p-6 md:p-10 print:max-w-none print:p-0">
-      <div className="mb-4 flex items-center justify-between print:hidden">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <p className="text-xs uppercase tracking-[0.18em] text-accent-ink">Gerencia · Facturación</p>
         <div className="flex items-center gap-3">
           {comprobante.estado === 'rechazado' && <BotonReintentar comprobanteId={comprobante.id} />}
@@ -49,7 +49,7 @@ export default async function ComprobanteDetalle({ params }: PageProps<'/factura
       </div>
 
       <div className="card space-y-4 p-6">
-        <header className="flex items-start justify-between border-b border-surface-border pb-4">
+        <header className="flex items-start justify-between gap-3 border-b border-surface-border pb-4">
           <div>
             <p className="font-serif text-xl text-fg">{comprobante.emisor_razon_social}</p>
             <p className="text-sm text-fg-muted">CUIT {comprobante.emisor_cuit}</p>
@@ -87,7 +87,7 @@ export default async function ComprobanteDetalle({ params }: PageProps<'/factura
           <p className="card-accent p-3 text-sm text-bad">{comprobante.rechazo_motivo}</p>
         )}
 
-        <div className="flex items-end justify-between border-t border-surface-border pt-4">
+        <div className="flex flex-wrap items-end justify-between gap-2 border-t border-surface-border pt-4">
           <div className="tnum text-2xl font-serif text-fg">{formatoDinero(Number(comprobante.total))}</div>
           {comprobante.estado === 'autorizado' && (
             <div className="text-right text-xs text-fg-muted">

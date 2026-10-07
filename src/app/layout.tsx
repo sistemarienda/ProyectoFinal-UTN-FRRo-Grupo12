@@ -43,6 +43,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Sin `cover`, `env(safe-area-inset-*)` vale 0 y la barra del portal tapa el gesto de inicio.
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#FBF8F0' },
     { media: '(prefers-color-scheme: dark)', color: '#1B100B' },

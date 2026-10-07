@@ -133,7 +133,7 @@ function FormularioNuevoServicio() {
         <span className="label">Nombre</span>
         <input name="nombre" required placeholder="Clases escuela" className="input" />
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="label">Unidad</span>
           <select name="unidad" className="input">
@@ -158,7 +158,7 @@ function FormularioNuevoServicio() {
           <option value="grupal">Grupal</option>
         </select>
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="label">Importe inicial</span>
           <input name="importeInicial" type="number" min="0" step="0.01" required className="input" />
@@ -189,7 +189,7 @@ function FormularioNuevaTarifa({ servicios }: { servicios: ServicioVisible[] }) 
           ))}
         </select>
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="label">Importe</span>
           <input name="importe" type="number" min="0" step="0.01" required className="input" />

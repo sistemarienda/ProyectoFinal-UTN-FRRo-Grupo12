@@ -84,7 +84,7 @@ export function EvolucionPorNivel({ series }: { series: SerieDeEvolucion[] }) {
 
   if (series.length === 0 || periodos.length === 0) {
     return (
-      <section className="card mt-6 p-5">
+      <section className="card mt-6 min-w-0 p-5">
         <h2 className="mb-1 font-serif text-lg text-fg">Evolución de asistencia por nivel</h2>
         <p className="text-sm text-fg-muted">
           Todavía no hay clases dictadas con nivel declarado como para dibujar una serie.
@@ -105,7 +105,7 @@ export function EvolucionPorNivel({ series }: { series: SerieDeEvolucion[] }) {
   const meses = periodos.map((p) => mesCorto(p.periodo)).join(' a ');
 
   return (
-    <section className="card mt-6 p-5">
+    <section className="card mt-6 min-w-0 p-5">
       <h2 className="mb-1 font-serif text-lg text-fg">Evolución de asistencia por nivel</h2>
       <p className="mb-4 text-sm text-fg-muted">
         Porcentaje mensual, últimos {periodos.length} meses.
@@ -117,7 +117,7 @@ export function EvolucionPorNivel({ series }: { series: SerieDeEvolucion[] }) {
           // Sin tope de altura: con uno, el navegador achica el dibujo entero
           // para respetarlo y lo centra, y el gráfico queda flotando angosto en
           // el medio de la tarjeta con dos franjas vacías a los costados.
-          className="w-full min-w-[520px]"
+          className="grafico-svg w-full"
           role="img"
           aria-label={`Asistencia mensual por nivel, de ${meses}. ${descripcion}`}
         >

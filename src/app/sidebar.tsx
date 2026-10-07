@@ -64,39 +64,45 @@ const GRUPOS: { titulo: string; enlaces: Enlace[] }[] = [
 const CONFIGURACION: Enlace = { area: 'configuracion', href: '/configuracion', texto: 'Configuración', icono: GearSix };
 
 export function Sidebar({ areas }: { areas: readonly Area[] }) {
-  const pathname = usePathname();
-  const esActual = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-
   return (
     <aside className="sidebar">
       <Link href="/" className="sidebar-brand" aria-label="RIENDA, ir al inicio">
         <Logotipo className="sidebar-logo" />
       </Link>
-
-      <nav className="sidebar-nav" aria-label="Navegación principal">
-        {areas.includes(INICIO.area) && <ItemDeNav enlace={INICIO} actual={esActual(INICIO.href)} />}
-
-        {GRUPOS.map((grupo) => {
-          const visibles = grupo.enlaces.filter((e) => areas.includes(e.area));
-          if (visibles.length === 0) return null;
-          return (
-            <div key={grupo.titulo}>
-              <p className="sidebar-group">{grupo.titulo}</p>
-              {visibles.map((e) => (
-                <ItemDeNav key={e.href} enlace={e} actual={esActual(e.href)} />
-              ))}
-            </div>
-          );
-        })}
-
-        {areas.includes(CONFIGURACION.area) && (
-          <div className="mt-auto">
-            <p className="sidebar-group">Sistema</p>
-            <ItemDeNav enlace={CONFIGURACION} actual={esActual(CONFIGURACION.href)} />
-          </div>
-        )}
-      </nav>
+      <Navegacion areas={areas} />
     </aside>
+  );
+}
+
+/** Los enlaces del personal, compartidos por el sidebar de escritorio y el menú del celular. */
+export function Navegacion({ areas }: { areas: readonly Area[] }) {
+  const pathname = usePathname();
+  const esActual = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <nav className="sidebar-nav" aria-label="Navegación principal">
+      {areas.includes(INICIO.area) && <ItemDeNav enlace={INICIO} actual={esActual(INICIO.href)} />}
+
+      {GRUPOS.map((grupo) => {
+        const visibles = grupo.enlaces.filter((e) => areas.includes(e.area));
+        if (visibles.length === 0) return null;
+        return (
+          <div key={grupo.titulo}>
+            <p className="sidebar-group">{grupo.titulo}</p>
+            {visibles.map((e) => (
+              <ItemDeNav key={e.href} enlace={e} actual={esActual(e.href)} />
+            ))}
+          </div>
+        );
+      })}
+
+      {areas.includes(CONFIGURACION.area) && (
+        <div className="mt-auto">
+          <p className="sidebar-group">Sistema</p>
+          <ItemDeNav enlace={CONFIGURACION} actual={esActual(CONFIGURACION.href)} />
+        </div>
+      )}
+    </nav>
   );
 }
 

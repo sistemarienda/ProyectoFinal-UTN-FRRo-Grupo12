@@ -48,7 +48,7 @@ export default async function MiCuenta() {
       </div>
 
       <section>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between gap-3 mb-1.5">
           <h2 className="font-serif text-lg text-fg">Estado de cuenta</h2>
           {ultimoComprobante && (
             <a className="link text-xs" href={ultimoComprobante.urlQr!} target="_blank" rel="noopener noreferrer">

@@ -42,7 +42,7 @@ export async function Armazon({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh">
       <Sidebar areas={sesion.areas} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <BarraSuperior nombre={sesion.nombre} apellido={sesion.apellido} rol={sesion.rol} />
+        <BarraSuperior nombre={sesion.nombre} apellido={sesion.apellido} rol={sesion.rol} areas={sesion.areas} />
         <main className="min-w-0 flex-1">
           {/* M14: el banner de conexión es cosa del personal de campo, que es
               quien trabaja sin señal. El dueño opera desde una PC con

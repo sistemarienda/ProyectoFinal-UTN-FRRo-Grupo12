@@ -233,7 +233,7 @@ export default async function Inventario() {
         </section>
 
       <section className="card overflow-hidden" aria-labelledby="h-ordenes">
-          <div className="flex items-center justify-between border-b border-surface-border px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-surface-border px-4 py-3">
             <h2 id="h-ordenes" className="font-serif text-lg">
               Órdenes de compra
             </h2>

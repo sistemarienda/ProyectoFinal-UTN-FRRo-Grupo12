@@ -169,7 +169,7 @@ function FormularioEditarPlantilla({ plantilla: p }: { plantilla: PlantillaVisib
         <form action={enviarRevision} className="space-y-3 border-t border-surface-border pt-4">
           <input type="hidden" name="plantillaId" value={p.id} />
           <p className="label">Registrar revisión de Meta</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="label">Resultado</span>
               <select name="estadoAprobacion" defaultValue={p.estadoAprobacion} className="input">

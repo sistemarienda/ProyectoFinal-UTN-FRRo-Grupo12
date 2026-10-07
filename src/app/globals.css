@@ -379,7 +379,7 @@ dialog.modal {
   /* `inset` y `margin: auto` explícitos: sin los dos el diálogo se ancla arriba
      a la izquierda en lugar de centrarse. */
   position: fixed; inset: 0; margin: auto;
-  width: min(34rem, calc(100vw - 2rem)); max-height: calc(100vh - 4rem);
+  width: min(34rem, calc(100vw - 2rem)); max-height: calc(100dvh - 4rem);
   color: var(--text);
 }
 dialog.modal::backdrop { background: rgba(42, 24, 18, .5); }
@@ -387,7 +387,7 @@ dialog.modal::backdrop { background: rgba(42, 24, 18, .5); }
   background: var(--surface); color: var(--text);
   border: 1px solid var(--surface-border);
   border-radius: var(--r-2xl); box-shadow: var(--shadow-md);
-  display: flex; flex-direction: column; max-height: calc(100vh - 4rem);
+  display: flex; flex-direction: column; max-height: calc(100dvh - 4rem);
 }
 .modal-encabezado {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
@@ -404,6 +404,26 @@ dialog.modal::backdrop { background: rgba(42, 24, 18, .5); }
   position: sticky; top: 0; height: 100dvh;
 }
 @media (max-width: 767px) { .sidebar { display: none; } }
+/* Menú del personal en el celular: un cajón que entra por la izquierda. Se
+   reutiliza la piel del sidebar (`.sidebar-nav`, `.nav-item`) para no duplicar. */
+dialog.menu-movil {
+  position: fixed; inset: 0 auto 0 0; margin: 0;
+  width: min(18rem, 86vw); max-width: none; height: 100dvh; max-height: none;
+  padding: 0; border: 0; background: var(--feature); color: var(--feature-fg);
+}
+dialog.menu-movil::backdrop { background: rgba(42, 24, 18, .5); }
+.menu-movil-caja {
+  display: flex; flex-direction: column; height: 100%;
+  padding: 1rem .75rem calc(1rem + env(safe-area-inset-bottom));
+}
+.menu-movil .sidebar-logo { width: 7rem; }
+.menu-movil .nav-item { min-height: 40px; padding-block: .375rem; }
+.menu-movil .sidebar-group { padding-top: .75rem; }
+/* El último enlace no puede quedar pegado al borde ni tapado por la barra del
+   navegador: la navegación scrollea y deja aire al final. */
+.menu-movil .sidebar-nav { padding-bottom: 1.5rem; overscroll-behavior: contain; }
+.menu-movil .ic { color: var(--feature-fg); }
+@media (min-width: 768px) { dialog.menu-movil { display: none; } }
 /* La marca es un solo dibujo, no un icono al lado de un texto: ya no hacen falta
    ni la caja del isotipo ni la tipografía del nombre. `.sidebar-mark` se
    conserva unas líneas más abajo porque el prototipo la sigue usando y los dos
@@ -603,4 +623,55 @@ dialog.modal::backdrop { background: rgba(42, 24, 18, .5); }
   --text-2xl:  24px;
   --text-3xl:  30px;
   --text-4xl:  36px;
+}
+
+/* El botón que abre el menú del celular. Clase propia porque `.ic` está fuera de
+   capa y le gana a `md:hidden`. Más grande que un `.ic` común: es el único
+   acceso a la navegación y se aprieta con el pulgar. */
+.menu-movil-abrir { height: 40px; width: 40px; }
+@media (min-width: 768px) { .menu-movil-abrir { display: none; } }
+
+/* =============================================================================
+   ADAPTACIÓN A CELULAR
+   Reglas transversales: se corrigen acá una vez en lugar de pantalla por pantalla.
+   ============================================================================= */
+
+/* Con la barra de estado translúcida de la app instalada (iOS), el contenido
+   llega hasta arriba del todo: la cabecera tiene que dejar lugar a la muesca.
+   Requiere `viewportFit: 'cover'` en el viewport del layout. */
+.topbar { padding-top: calc(.875rem + env(safe-area-inset-top)); }
+
+@media (max-width: 767px) {
+  /* Por debajo de 16 px, Safari en iPhone hace zoom al enfocar un campo y la
+     pantalla queda desplazada. */
+  .input, select.input, textarea.input { font-size: 16px; }
+
+  /* Los márgenes de los modales se achican: 2 rem por lado es mucho en 360 px. */
+  dialog.modal { width: calc(100vw - 1rem); max-height: calc(100dvh - 2rem); }
+  .modal-caja { max-height: calc(100dvh - 2rem); }
+  .modal-cuerpo { padding: 1rem; }
+
+  /* Las tablas anchas se desplazan de costado: la primera columna se queda
+     fija para no perder de qué fila se está leyendo. */
+  .tbl tbody td:first-child, .tbl thead th:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--surface);
+  }
+}
+
+/* Dedo en vez de puntero: los botones-ícono de fila miden 30 px y el mínimo
+   cómodo es 40. Sólo en pantallas táctiles, para no ensanchar las tablas de
+   escritorio. */
+@media (pointer: coarse) {
+  .ic { height: 40px; width: 40px; }
+  .btn-sm { min-height: 2.5rem; }
+  .nav-btn { height: 40px; width: 40px; }
+}
+
+/* Gráficos SVG: el dibujo está pensado a 640 de ancho. En un celular escala a
+   la mitad, y con él las etiquetas (11 → 5 px) y los trazos. Se compensa acá
+   en vez de darle un ancho mínimo y obligar a deslizar el gráfico: se prefiere
+   que entre completo en la tarjeta. */
+@media (max-width: 767px) {
+  .grafico-svg text { font-size: 21px; }
+  .grafico-svg polyline, .grafico-svg line, .grafico-svg path { vector-effect: non-scaling-stroke; }
 }
