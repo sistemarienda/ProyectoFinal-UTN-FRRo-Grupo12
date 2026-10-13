@@ -40,7 +40,10 @@ export function BarraSuperior({
 
   async function cerrarSesion() {
     const supabase = clienteDeNavegador();
-    await supabase.auth.signOut();
+    // `local` y no el valor por omisión (`global`), que cierra la sesión de esa
+    // cuenta en TODOS los dispositivos: con una cuenta compartida, salir desde
+    // un celular dejaba afuera a quien estaba usando la computadora.
+    await supabase.auth.signOut({ scope: 'local' });
     iniciarTransicion(() => {
       router.replace('/ingresar');
       router.refresh();
