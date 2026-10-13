@@ -31,9 +31,20 @@ export function FormularioLote({ puntosVenta }: { puntosVenta: PuntoVentaOpcion[
         <p className="helper w-full text-ok">
           {resultado.emitidos} comprobante{resultado.emitidos === 1 ? '' : 's'} autorizado{resultado.emitidos === 1 ? '' : 's'} de {resultado.resultados.length}.
           {resultado.resultados.some((r) => r.estado === 'rechazado') && (
-            <span className="text-warn"> Rechazados: {resultado.resultados.filter((r) => r.estado === 'rechazado').length}, revisalos abajo.</span>
+            <span className="text-warn"> Rechazados: {resultado.resultados.filter((r) => r.estado === 'rechazado').length}.</span>
           )}
         </p>
+      )}
+      {resultado.estado === 'ok' && resultado.resultados.some((r) => r.estado === 'rechazado') && (
+        <ul className="w-full space-y-1 text-sm">
+          {resultado.resultados
+            .filter((r) => r.estado === 'rechazado')
+            .map((r) => (
+              <li key={r.clienteId} className="text-bad">
+                <span className="font-medium">{r.cliente}:</span> {r.motivo ?? 'ARCA rechazó el comprobante sin detalle.'}
+              </li>
+            ))}
+        </ul>
       )}
       {resultado.estado === 'error' && <p className="error w-full">{resultado.mensaje}</p>}
     </form>

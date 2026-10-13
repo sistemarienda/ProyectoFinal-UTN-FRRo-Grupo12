@@ -5,6 +5,7 @@ import { TRPCError } from '@trpc/server';
 import { llamador } from '@/lib/trpc/servidor';
 import { BotonReintentar } from '../boton-reintentar';
 import { BotonImprimir } from './boton-imprimir';
+import { fechaCorta } from '@/lib/fechas';
 
 export const metadata: Metadata = { title: 'Comprobante' };
 
@@ -73,7 +74,7 @@ export default async function ComprobanteDetalle({ params }: PageProps<'/factura
           </div>
           <div>
             <dt className="label">Fecha de emisión</dt>
-            <dd className="text-fg">{comprobante.fecha_emision}</dd>
+            <dd className="text-fg">{fechaCorta(comprobante.fecha_emision)}</dd>
           </div>
           <div>
             <dt className="label">Estado</dt>
@@ -92,7 +93,7 @@ export default async function ComprobanteDetalle({ params }: PageProps<'/factura
           {comprobante.estado === 'autorizado' && (
             <div className="text-right text-xs text-fg-muted">
               <p>CAE {comprobante.cae}</p>
-              <p>Vto. {comprobante.cae_vencimiento}</p>
+              <p>Vto. {comprobante.cae_vencimiento ? fechaCorta(comprobante.cae_vencimiento) : '—'}</p>
             </div>
           )}
         </div>

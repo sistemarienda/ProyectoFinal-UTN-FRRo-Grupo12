@@ -26,7 +26,7 @@ export async function emitirComprobante(
 
 export type ResultadoDeLote =
   | { estado: 'inicial' }
-  | { estado: 'ok'; emitidos: number; resultados: { clienteId: string; estado: 'autorizado' | 'rechazado'; motivo?: string }[] }
+  | { estado: 'ok'; emitidos: number; resultados: { clienteId: string; cliente: string; estado: 'autorizado' | 'rechazado'; motivo?: string }[] }
   | { estado: 'error'; mensaje: string };
 
 export async function emitirLote(

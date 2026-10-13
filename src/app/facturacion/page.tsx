@@ -4,6 +4,7 @@ import { llamador } from '@/lib/trpc/servidor';
 import { FormularioEmitir } from './formulario-emitir';
 import { FormularioLote } from './formulario-lote';
 import { BotonReintentar } from './boton-reintentar';
+import { fechaCorta } from '@/lib/fechas';
 
 export const metadata: Metadata = { title: 'Facturación' };
 
@@ -142,7 +143,7 @@ export default async function Facturacion({ searchParams }: PageProps<'/facturac
                       {ESTADO_TEXTO[c.estado as keyof typeof ESTADO_TEXTO]}
                     </span>
                   </td>
-                  <td className="text-xs">{c.fecha_emision}</td>
+                  <td className="text-xs">{fechaCorta(c.fecha_emision)}</td>
                   <td>{c.estado === 'rechazado' && <BotonReintentar comprobanteId={c.id} />}</td>
                 </tr>
               ))}

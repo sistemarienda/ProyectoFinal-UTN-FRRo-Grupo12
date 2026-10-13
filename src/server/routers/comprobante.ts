@@ -16,6 +16,7 @@ import {
   type TipoDocumento,
 } from '@/lib/arca';
 import type { Database } from '@/lib/supabase/tipos-generados';
+import { partesLocales } from '@/lib/agenda';
 import { mensajeDeError } from '../errores';
 
 /**
@@ -134,7 +135,21 @@ async function emitirParaCliente(
   const total = cargos.reduce((acc, c) => acc + Number(c.importe), 0);
   const periodos = cargos.map((c) => c.periodo).filter((p): p is string => Boolean(p)).sort();
   const vencimientos = cargos.map((c) => c.vence_en).filter((v): v is string => Boolean(v)).sort();
-  const hoy = new Date();
+
+  // La fecha del comprobante es la del haras, no la del servidor: de 21 a 24 h
+  // en Argentina, UTC ya va por el día siguiente.
+  const hoyIso = partesLocales(new Date()).fecha;
+  const hoy = new Date(`${hoyIso}T00:00:00Z`);
+
+  // El servicio va del primer día del primer período al último día del último.
+  const ultimoPeriodo = new Date(periodos.at(-1) ?? hoyIso);
+  const finDelServicio = new Date(Date.UTC(ultimoPeriodo.getUTCFullYear(), ultimoPeriodo.getUTCMonth() + 1, 0));
+
+  // ARCA rechaza un vencimiento de pago anterior a la fecha del comprobante
+  // (error 10036), que es justo lo que pasa al facturar deuda ya vencida: en
+  // ese caso el pago vence el día de la emisión.
+  const ultimoVencimiento = vencimientos.at(-1);
+  const vencimientoDePago = ultimoVencimiento && ultimoVencimiento > hoyIso ? new Date(ultimoVencimiento) : hoy;
 
   const tipo = tipoComprobanteDesde(identidad.condicionIva, cliente.condicion_iva as CondicionIvaReceptor);
   const esPersonaJuridica = cliente.tipo === 'persona_juridica';
@@ -151,8 +166,8 @@ async function emitirParaCliente(
     DocNro: docNro,
     CbteFch: fechaWsfe(hoy),
     FchServDesde: fechaWsfe(new Date(periodos[0] ?? hoy.toISOString())),
-    FchServHasta: fechaWsfe(new Date(periodos.at(-1) ?? hoy.toISOString())),
-    FchVtoPago: fechaWsfe(new Date(vencimientos.at(-1) ?? hoy.toISOString())),
+    FchServHasta: fechaWsfe(finDelServicio),
+    FchVtoPago: fechaWsfe(vencimientoDePago),
     ImpTotal: total,
     ImpTotConc: 0,
     ImpNeto: total, // RN-02: hoy sólo se emite C (monotributo/exento), sin discriminar IVA
@@ -183,7 +198,7 @@ async function emitirParaCliente(
       tipo,
       punto_venta_id: puntoVenta.id,
       numero,
-      fecha_emision: hoy.toISOString().slice(0, 10),
+      fecha_emision: hoyIso,
       cae: autorizado ? resultado.cae : null,
       cae_vencimiento: autorizado
         ? `${resultado.caeFchVto.slice(0, 4)}-${resultado.caeFchVto.slice(4, 6)}-${resultado.caeFchVto.slice(6, 8)}`
@@ -283,13 +298,22 @@ export const routerComprobante = crearRouter({
         porCliente.set(clienteId, [...(porCliente.get(clienteId) ?? []), cargo]);
       }
 
-      const resultados: { clienteId: string; estado: 'autorizado' | 'rechazado'; motivo?: string }[] = [];
+      const resultados: { clienteId: string; cliente: string; estado: 'autorizado' | 'rechazado'; motivo?: string }[] = [];
       for (const [clienteId, cargos] of porCliente) {
+        const cliente = nombreDeCliente(cargos[0]!.cuenta!.cliente!);
         try {
           const r = await emitirParaCliente(ctx, cargos, puntoVenta);
-          resultados.push({ clienteId, estado: r.estado, motivo: r.observaciones ?? undefined });
+          resultados.push({ clienteId, cliente, estado: r.estado, motivo: r.observaciones ?? undefined });
         } catch (e) {
-          resultados.push({ clienteId, estado: 'rechazado', motivo: e instanceof TRPCError ? e.message : 'Error inesperado.' });
+          // Un error que no llega a guardar el comprobante no aparece en la
+          // tabla: sin el log y el motivo en pantalla, el rechazo era invisible.
+          console.error('comprobante.emitirLote:', cliente, e);
+          resultados.push({
+            clienteId,
+            cliente,
+            estado: 'rechazado',
+            motivo: e instanceof TRPCError ? e.message : e instanceof Error ? e.message : 'Error inesperado.',
+          });
         }
       }
       return { emitidos: resultados.filter((r) => r.estado === 'autorizado').length, resultados };
