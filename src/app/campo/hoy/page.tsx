@@ -4,6 +4,10 @@ import { BowlFood, Broom, CaretRight, FirstAidKit, WarningCircle } from '@phosph
 import { llamador } from '@/lib/trpc/servidor';
 import { esAdministrador } from '@/lib/roles';
 import { MOMENTO_TEXTO, tipoEnTexto } from '@/lib/bienestar';
+import { partesLocales } from '@/lib/agenda';
+import { tramoActual } from '@/lib/clima';
+import { obtenerPronostico } from '@/server/clima';
+import { ClimaDeHoy } from '../../clima';
 
 export const metadata: Metadata = { title: 'Mi jornada' };
 
@@ -21,14 +25,19 @@ export const metadata: Metadata = { title: 'Mi jornada' };
  */
 export default async function MiJornada() {
   const api = await llamador();
-  const [quien, turno, sanidad] = await Promise.all([
+  const [quien, turno, sanidad, pronostico] = await Promise.all([
     api.quienSoy(),
     api.registroCuidado.tareasDelTurno(),
     api.eventoSanitario.alertas(),
+    obtenerPronostico(),
   ]);
 
+  const ahora = new Date();
+  const climaAhora = pronostico ? tramoActual(pronostico.tramos, ahora) : null;
+  const climaDeHoy = pronostico?.dias.find((d) => d.fecha === partesLocales(ahora).fecha) ?? null;
+
   const vencidos = sanidad.alertas.filter((a) => a.estado === 'vencido').length;
-  const hoy = new Date().toLocaleDateString('es-AR', {
+  const hoy = ahora.toLocaleDateString('es-AR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -50,6 +59,7 @@ export default async function MiJornada() {
             ? 'todo registrado'
             : `${turno.pendientes} ${turno.pendientes === 1 ? 'caballo' : 'caballos'} por servir`}
         </p>
+        <ClimaDeHoy ahora={climaAhora} dia={climaDeHoy} />
       </div>
 
       <h2 className="mt-6 font-serif text-lg">Tareas</h2>

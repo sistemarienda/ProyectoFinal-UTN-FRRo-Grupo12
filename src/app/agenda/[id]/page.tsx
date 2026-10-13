@@ -4,6 +4,9 @@ import { notFound } from 'next/navigation';
 import { TRPCError } from '@trpc/server';
 import { llamador } from '@/lib/trpc/servidor';
 import { ZONA_HARAS, partesLocales } from '@/lib/agenda';
+import { tramoActual } from '@/lib/clima';
+import { obtenerPronostico } from '@/server/clima';
+import { ClimaDeLaClase } from '../../clima';
 import { BotonCancelarInscripcion, FormularioInscribir } from './inscripciones';
 import { FormularioModificar, FormularioSuspender } from './formularios-clase';
 
@@ -51,13 +54,16 @@ export default async function DetalleDeClase({ params }: PageProps<'/agenda/[id]
     throw e;
   }
 
-  const [instructores, instalaciones] = await Promise.all([
+  const [instructores, instalaciones, pronostico] = await Promise.all([
     api.usuario.instructores(),
     api.instalacion.listar(),
+    obtenerPronostico(),
   ]);
 
   const { clase, cupo, inscripciones, candidatos, caballos } = detalle;
   const cuando = partesLocales(clase.inicia_en);
+  const climaDeLaClase =
+    clase.estado === 'programada' && pronostico ? tramoActual(pronostico.tramos, clase.inicia_en) : null;
   const estado = ESTADO[clase.estado];
   const esIndividual = clase.servicio?.modalidad === 'individual';
 
@@ -133,6 +139,8 @@ export default async function DetalleDeClase({ params }: PageProps<'/agenda/[id]
           </p>
         </div>
       </div>
+
+      {climaDeLaClase && <ClimaDeLaClase tramo={climaDeLaClase} />}
 
       {clase.nivel && (
         <p className="mt-3 text-sm text-fg-muted">

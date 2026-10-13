@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react/dist/ssr';
 import { llamador } from '@/lib/trpc/servidor';
 import { ZONA_HARAS, armarGrilla, partesLocales, semanaCorrida, semanaDe } from '@/lib/agenda';
+import { obtenerPronostico } from '@/server/clima';
+import { ClimaDelDia } from '../clima';
 import { FormularioDeClase } from './formulario-clase';
 
 export const metadata: Metadata = { title: 'Agenda de clases' };
@@ -47,12 +49,15 @@ export default async function Agenda({ searchParams }: PageProps<'/agenda'>) {
   const instructorId = typeof parametros.instructor === 'string' ? parametros.instructor : undefined;
 
   const api = await llamador();
-  const [agenda, instalaciones, instructores, servicios] = await Promise.all([
+  const [agenda, instalaciones, instructores, servicios, pronostico] = await Promise.all([
     api.clase.semanal({ referencia: semanaPedida, instalacionId, instructorId }),
     api.instalacion.listar(),
     api.usuario.instructores(),
     api.servicio.listar(),
+    obtenerPronostico(),
   ]);
+  const climaPorFecha = new Map((pronostico?.dias ?? []).map((d) => [d.fecha, d]));
+  const hayClimaEnLaSemana = agenda.dias.some((f) => climaPorFecha.has(f));
 
   const referencia = semanaPedida ?? semanaDe(new Date()).dias[0] ?? '';
   const filas = armarGrilla(agenda.clases, agenda.dias, (c) => c.inicia_en);
@@ -148,15 +153,19 @@ export default async function Agenda({ searchParams }: PageProps<'/agenda'>) {
             <thead>
               <tr>
                 <th scope="col" className="w-14"><span className="sr-only">Hora</span></th>
-                {columnas.map((fecha, i) => (
-                  <th
-                    key={fecha}
-                    scope="col"
-                    className="border-l border-surface-border px-3 py-2 text-center text-sm font-medium"
-                  >
-                    {DIAS_CORTOS[i]} <span className="text-fg-muted">{Number(fecha.slice(8, 10))}</span>
-                  </th>
-                ))}
+                {columnas.map((fecha, i) => {
+                  const clima = climaPorFecha.get(fecha);
+                  return (
+                    <th
+                      key={fecha}
+                      scope="col"
+                      className="border-l border-surface-border px-3 py-2 text-center text-sm font-medium"
+                    >
+                      {DIAS_CORTOS[i]} <span className="text-fg-muted">{Number(fecha.slice(8, 10))}</span>
+                      {clima && <ClimaDelDia dia={clima} />}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -236,6 +245,9 @@ export default async function Agenda({ searchParams }: PageProps<'/agenda'>) {
             />
             Suspendida
           </span>
+          {hayClimaEnLaSemana && (
+            <span>Pronóstico de OpenWeather; en ámbar, lluvia o viento fuerte probables.</span>
+          )}
           <span className="ml-auto">Horarios en hora de {ZONA_HARAS.split('/').at(-1)?.replace(/_/g, ' ')}.</span>
         </div>
       </div>
