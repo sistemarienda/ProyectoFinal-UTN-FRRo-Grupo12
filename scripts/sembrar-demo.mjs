@@ -33,10 +33,56 @@ const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABA
   auth: { persistSession: false },
 });
 
-const HOY = '2026-09-05';
 const ZONA = '-03:00';
 /** Instante UTC que corresponde a una hora de pared del haras. */
 const enFunes = (fecha, hora) => new Date(`${fecha}T${hora}:00${ZONA}`).toISOString();
+
+/**
+ * El «hoy» de la demostración: la fecha del día en Funes, o la que se pase.
+ *
+ *   node scripts/sembrar-demo.mjs              # hoy
+ *   node scripts/sembrar-demo.mjs 2026-10-19   # una fecha fija
+ *
+ * El guion se escribió con hoy = 5/9/2026: historia de junio a agosto, la
+ * semana en curso y dos programadas hacia adelante. Para que la demo no envejezca
+ * (la agenda de la semana vacía, la cartera de hace dos meses), toda la historia
+ * se corre los meses que haya entre septiembre y el mes de HOY, y lo que es
+ * «los últimos días» (cuidados, la agenda futura, el borrador de compra) se arma
+ * alrededor de HOY. Conviene sembrar el mismo día de la presentación, o la noche
+ * anterior: lo que figura dictado o registrado nunca queda en el futuro.
+ */
+const HOY = process.argv[2] ?? new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
+if (!/^\d{4}-\d{2}-\d{2}$/.test(HOY)) {
+  console.error(`Fecha inválida: ${HOY}. Formato AAAA-MM-DD.`);
+  process.exit(1);
+}
+const MESES = Number(HOY.slice(0, 4)) * 12 + Number(HOY.slice(5, 7)) - (2026 * 12 + 9);
+
+/** Corre una fecha del guion original (`AAAA-MM` o `AAAA-MM-DD`) los MESES que hagan falta. */
+function mes(fecha) {
+  const total = Number(fecha.slice(0, 4)) * 12 + Number(fecha.slice(5, 7)) - 1 + MESES;
+  const anio = Math.floor(total / 12);
+  const m = (total % 12) + 1;
+  const aaaamm = `${anio}-${String(m).padStart(2, '0')}`;
+  if (fecha.length === 7) return aaaamm;
+  const ultimoDia = new Date(Date.UTC(anio, m, 0)).getUTCDate();
+  return `${aaaamm}-${String(Math.min(Number(fecha.slice(8, 10)), ultimoDia)).padStart(2, '0')}`;
+}
+
+/** Un hecho ya ocurrido nunca después de HOY, aunque el guion lo pusiera más tarde en el mes. */
+const pasado = (fecha) => (mes(fecha) > HOY ? HOY : mes(fecha));
+
+/** HOY corrido una cantidad de días. */
+function diasDesdeHoy(n) {
+  const d = new Date(`${HOY}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+const nombreDelMes = (fecha) =>
+  new Date(`${fecha.slice(0, 7)}-15T12:00:00Z`).toLocaleDateString('es-AR', { month: 'long', timeZone: 'UTC' });
+
+console.log(`hoy de la demostración: ${HOY} (historia corrida ${MESES} meses)`);
 
 function revisar(etiqueta, { data, error }) {
   if (error) {
@@ -266,13 +312,13 @@ await insertar(
   'tarifa',
   Object.entries(PRECIOS).flatMap(([nombre, [enero, julio]]) => [
     { servicio_id: srv[nombre].id, importe: enero, vigente_desde: '2026-01-01' },
-    { servicio_id: srv[nombre].id, importe: julio, vigente_desde: '2026-07-01' },
+    { servicio_id: srv[nombre].id, importe: julio, vigente_desde: mes('2026-07-01') },
   ]),
 );
 console.log(`tarifas: ${Object.keys(PRECIOS).length * 2}`);
 
 /** El precio del servicio a una fecha: la vigencia más reciente que no la supera. */
-const precioAl = (nombre, fecha) => (fecha >= '2026-07-01' ? PRECIOS[nombre][1] : PRECIOS[nombre][0]);
+const precioAl = (nombre, fecha) => (fecha >= mes('2026-07-01') ? PRECIOS[nombre][1] : PRECIOS[nombre][0]);
 
 // -----------------------------------------------------------------------------
 // 4 · Clientes, alumnos y caballos
@@ -427,11 +473,11 @@ const loSanitario = (d) => ({
 });
 
 await insertar('evento_sanitario', [
-  ...caballos.map((c) => loSanitario({ caballo_id: c.id, tipo: 'desparasitacion', fecha: '2026-06-15', producto: 'Ivermectina 1 %', dosis: '1 dosis cada 100 kg', profesional: 'Dra. Vera Antonelli', proxima_fecha: '2026-09-15', costo: 8500 })),
-  ...caballos.map((c) => loSanitario({ caballo_id: c.id, tipo: 'desparasitacion', estado: 'previsto', fecha: '2026-09-15', producto: 'Praziquantel', dosis: '1 dosis cada 100 kg', observaciones: 'Rotación de droga respecto del ciclo anterior.' })),
-  loSanitario({ caballo_id: cab['Nube'], tipo: 'veterinario', fecha: '2026-08-28', profesional: 'Dra. Vera Antonelli', observaciones: 'Claudicación leve del anterior derecho. Reposo de tres semanas.', proxima_fecha: '2026-09-18', costo: 45000 }),
-  loSanitario({ caballo_id: cab['Gambeta'], tipo: 'herrador', fecha: '2026-08-10', profesional: 'Omar Sosa', costo: 32000, proxima_fecha: '2026-10-10' }),
-  loSanitario({ caballo_id: cab['Rayo'], tipo: 'vacunacion', fecha: '2026-04-05', producto: 'Influenza equina', profesional: 'Dra. Vera Antonelli', proxima_fecha: '2026-10-05', costo: 12000 }),
+  ...caballos.map((c) => loSanitario({ caballo_id: c.id, tipo: 'desparasitacion', fecha: mes('2026-06-15'), producto: 'Ivermectina 1 %', dosis: '1 dosis cada 100 kg', profesional: 'Dra. Vera Antonelli', proxima_fecha: mes('2026-09-15'), costo: 8500 })),
+  ...caballos.map((c) => loSanitario({ caballo_id: c.id, tipo: 'desparasitacion', estado: 'previsto', fecha: mes('2026-09-15'), producto: 'Praziquantel', dosis: '1 dosis cada 100 kg', observaciones: 'Rotación de droga respecto del ciclo anterior.' })),
+  loSanitario({ caballo_id: cab['Nube'], tipo: 'veterinario', fecha: mes('2026-08-28'), profesional: 'Dra. Vera Antonelli', observaciones: 'Claudicación leve del anterior derecho. Reposo de tres semanas.', proxima_fecha: mes('2026-09-18'), costo: 45000 }),
+  loSanitario({ caballo_id: cab['Gambeta'], tipo: 'herrador', fecha: mes('2026-08-10'), profesional: 'Omar Sosa', costo: 32000, proxima_fecha: mes('2026-10-10') }),
+  loSanitario({ caballo_id: cab['Rayo'], tipo: 'vacunacion', fecha: mes('2026-04-05'), producto: 'Influenza equina', profesional: 'Dra. Vera Antonelli', proxima_fecha: mes('2026-10-05'), costo: 12000 }),
 ]);
 
 const proveedores = await insertar('proveedor', [
@@ -468,22 +514,22 @@ await insertar('movimiento_stock', [
   // El balanceado y la avena de agosto no entran acá: los trae la orden de
   // compra 2026-001, más abajo, con su recepción. Un ingreso suelto que en
   // realidad vino de una orden esconde justamente el vínculo que M10 agrega.
-  elMovimiento({ insumo_id: ins['Balanceado equino'], tipo: 'egreso', cantidad: 820, motivo: 'Consumo de agosto', ocurrido_en: enFunes('2026-08-31', '18:00') }),
-  elMovimiento({ insumo_id: ins['Avena'], tipo: 'egreso', cantidad: 480, motivo: 'Consumo de agosto', ocurrido_en: enFunes('2026-08-31', '18:00') }),
+  elMovimiento({ insumo_id: ins['Balanceado equino'], tipo: 'egreso', cantidad: 820, motivo: `Consumo de ${nombreDelMes(mes('2026-08'))}`, ocurrido_en: enFunes(pasado('2026-08-31'), '18:00') }),
+  elMovimiento({ insumo_id: ins['Avena'], tipo: 'egreso', cantidad: 480, motivo: `Consumo de ${nombreDelMes(mes('2026-08'))}`, ocurrido_en: enFunes(pasado('2026-08-31'), '18:00') }),
   // La viruta queda por debajo del mínimo a propósito: es la alerta de reposición.
-  elMovimiento({ insumo_id: ins['Viruta de pino'], tipo: 'ingreso', cantidad: 120, motivo: 'Compra mensual', ocurrido_en: enFunes('2026-08-05', '09:00') }),
-  elMovimiento({ insumo_id: ins['Viruta de pino'], tipo: 'egreso', cantidad: 108, motivo: 'Reposición de camas', ocurrido_en: enFunes('2026-09-01', '08:00') }),
-  elMovimiento({ insumo_id: ins['Fardo de alfalfa'], tipo: 'ingreso', cantidad: 90, motivo: 'Compra mensual', ocurrido_en: enFunes('2026-08-05', '09:00') }),
-  elMovimiento({ insumo_id: ins['Fardo de alfalfa'], tipo: 'egreso', cantidad: 62, motivo: 'Consumo de agosto', ocurrido_en: enFunes('2026-08-31', '18:00') }),
-  elMovimiento({ insumo_id: ins['Ivermectina 1 %'], tipo: 'ingreso', cantidad: 40, motivo: 'Compra sanitaria', ocurrido_en: enFunes('2026-06-10', '10:00') }),
-  elMovimiento({ insumo_id: ins['Ivermectina 1 %'], tipo: 'egreso', cantidad: 27, motivo: 'Ciclo de desparasitación de junio', ocurrido_en: enFunes('2026-06-15', '09:00') }),
-  elMovimiento({ insumo_id: ins['Alambre de piquete'], tipo: 'ingreso', cantidad: 500, motivo: 'Compra de mantenimiento', ocurrido_en: enFunes('2026-07-02', '11:00') }),
-  elMovimiento({ insumo_id: ins['Alambre de piquete'], tipo: 'egreso', cantidad: 180, motivo: 'Reparación del piquete norte', ocurrido_en: enFunes('2026-07-20', '15:00') }),
+  elMovimiento({ insumo_id: ins['Viruta de pino'], tipo: 'ingreso', cantidad: 120, motivo: 'Compra mensual', ocurrido_en: enFunes(pasado('2026-08-05'), '09:00') }),
+  elMovimiento({ insumo_id: ins['Viruta de pino'], tipo: 'egreso', cantidad: 108, motivo: 'Reposición de camas', ocurrido_en: enFunes(pasado('2026-09-01'), '08:00') }),
+  elMovimiento({ insumo_id: ins['Fardo de alfalfa'], tipo: 'ingreso', cantidad: 90, motivo: 'Compra mensual', ocurrido_en: enFunes(pasado('2026-08-05'), '09:00') }),
+  elMovimiento({ insumo_id: ins['Fardo de alfalfa'], tipo: 'egreso', cantidad: 62, motivo: `Consumo de ${nombreDelMes(mes('2026-08'))}`, ocurrido_en: enFunes(pasado('2026-08-31'), '18:00') }),
+  elMovimiento({ insumo_id: ins['Ivermectina 1 %'], tipo: 'ingreso', cantidad: 40, motivo: 'Compra sanitaria', ocurrido_en: enFunes(pasado('2026-06-10'), '10:00') }),
+  elMovimiento({ insumo_id: ins['Ivermectina 1 %'], tipo: 'egreso', cantidad: 27, motivo: `Ciclo de desparasitación de ${nombreDelMes(mes('2026-06'))}`, ocurrido_en: enFunes(pasado('2026-06-15'), '09:00') }),
+  elMovimiento({ insumo_id: ins['Alambre de piquete'], tipo: 'ingreso', cantidad: 500, motivo: 'Compra de mantenimiento', ocurrido_en: enFunes(pasado('2026-07-02'), '11:00') }),
+  elMovimiento({ insumo_id: ins['Alambre de piquete'], tipo: 'egreso', cantidad: 180, motivo: 'Reparación del piquete norte', ocurrido_en: enFunes(pasado('2026-07-20'), '15:00') }),
   // Reposición de septiembre. Está para que el consumo diario que siembra el
   // bloque de cuidados no deje al balanceado y a la avena bajo el mínimo: el
   // insumo que tiene que verse en rojo es la viruta, y uno solo.
-  elMovimiento({ insumo_id: ins['Balanceado equino'], tipo: 'ingreso', cantidad: 600, motivo: 'Compra de septiembre', ocurrido_en: enFunes('2026-09-01', '09:00') }),
-  elMovimiento({ insumo_id: ins['Avena'], tipo: 'ingreso', cantidad: 400, motivo: 'Compra de septiembre', ocurrido_en: enFunes('2026-09-01', '09:00') }),
+  elMovimiento({ insumo_id: ins['Balanceado equino'], tipo: 'ingreso', cantidad: 600, motivo: `Compra de ${nombreDelMes(HOY)}`, ocurrido_en: enFunes(pasado('2026-09-01'), '09:00') }),
+  elMovimiento({ insumo_id: ins['Avena'], tipo: 'ingreso', cantidad: 400, motivo: `Compra de ${nombreDelMes(HOY)}`, ocurrido_en: enFunes(pasado('2026-09-01'), '09:00') }),
 ]);
 
 // ---------------------------------------------------------------------------
@@ -536,21 +582,21 @@ const recibir = async (ordenId, insumoId, cantidad, cuando) => {
 };
 
 // Una orden cerrada: llegó todo y el disparador la dejó en `recibida`.
-const ordenCerrada = await emitir(proveedores[0].id, '2026-08-04', [
+const ordenCerrada = await emitir(proveedores[0].id, pasado('2026-08-04'), [
   { insumoId: ins['Balanceado equino'], cantidad: 1000, precio: 980 },
   { insumoId: ins['Avena'], cantidad: 600, precio: 720 },
 ]);
-await recibir(ordenCerrada.id, ins['Balanceado equino'], 1000, enFunes('2026-08-05', '09:00'));
-await recibir(ordenCerrada.id, ins['Avena'], 600, enFunes('2026-08-05', '09:00'));
+await recibir(ordenCerrada.id, ins['Balanceado equino'], 1000, enFunes(pasado('2026-08-05'), '09:00'));
+await recibir(ordenCerrada.id, ins['Avena'], 600, enFunes(pasado('2026-08-05'), '09:00'));
 
 // Una orden a medias: llegó la alfalfa y no la viruta. Es el caso que la
 // decisión 1.11 agregó al modelo y que sin datos no se ve nunca; es además el
 // motivo por el que la viruta queda bajo mínimo y en rojo en la pantalla.
-const ordenParcial = await emitir(proveedores[0].id, '2026-09-02', [
+const ordenParcial = await emitir(proveedores[0].id, pasado('2026-09-02'), [
   { insumoId: ins['Fardo de alfalfa'], cantidad: 100, precio: 4200 },
   { insumoId: ins['Viruta de pino'], cantidad: 150, precio: 3100 },
 ]);
-await recibir(ordenParcial.id, ins['Fardo de alfalfa'], 100, enFunes('2026-09-03', '10:00'));
+await recibir(ordenParcial.id, ins['Fardo de alfalfa'], 100, enFunes(pasado('2026-09-03'), '10:00'));
 
 // Un borrador sin enviar, para que se vea el estado en que nace una orden.
 const ordenBorrador = await uno('orden_compra', { proveedor_id: proveedores[1].id, fecha_emision: HOY });
@@ -562,7 +608,7 @@ await insertar('detalle_orden_compra', [
 // el modelo no podía representar, y el que explica por qué la viruta no coincide
 // con la cuenta de ingresos y egresos.
 await insertar('movimiento_stock', [
-  elMovimiento({ insumo_id: ins['Viruta de pino'], tipo: 'ajuste', cantidad: -6, motivo: 'Rotura de bolsas en el depósito', ocurrido_en: enFunes('2026-09-04', '17:00') }),
+  elMovimiento({ insumo_id: ins['Viruta de pino'], tipo: 'ajuste', cantidad: -6, motivo: 'Rotura de bolsas en el depósito', ocurrido_en: enFunes(pasado('2026-09-04'), '17:00') }),
 ]);
 
 console.log(
@@ -578,7 +624,7 @@ console.log(
 // (decisión 1.6) y el consumo cuelga de él (decisión 1.7): son las dos
 // propiedades que M14 va a necesitar intactas cuando enganche la cola.
 // ---------------------------------------------------------------------------
-const DIAS_DE_CUIDADO = ['2026-09-03', '2026-09-04', '2026-09-05'];
+const DIAS_DE_CUIDADO = [diasDesdeHoy(-2), diasDesdeHoy(-1), HOY];
 
 const elCuidado = (d) => ({
   instalacion_id: null,
@@ -611,7 +657,7 @@ for (const dia of DIAS_DE_CUIDADO) {
           // Una novedad real, para que el campo de observaciones no se vea vacío
           // en todas las filas: Nube está en tratamiento y come menos.
           observaciones:
-            c.nombre === 'Nube' && momento === 'manana' && dia === '2026-09-05'
+            c.nombre === 'Nube' && momento === 'manana' && dia === HOY
               ? 'Dejó la mitad de la ración. Sigue en reposo por la claudicación.'
               : null,
         }),
@@ -675,7 +721,7 @@ cuidados.push(
     caballo_id: null,
     instalacion_id: inst['Box 8'],
     tipo: 'higiene',
-    ocurrido_en: enFunes('2026-09-04', '09:30'),
+    ocurrido_en: enFunes(diasDesdeHoy(-1), '09:30'),
     observaciones: 'Box desocupado: limpieza general antes de recibir un pupilo.',
   }),
 );
@@ -693,7 +739,7 @@ console.log(
 );
 
 // -----------------------------------------------------------------------------
-// 7 · Agenda: la semana tipo, repetida de junio a mediados de septiembre
+// 7 · Agenda: la semana tipo, desde tres meses atrás hasta dos semanas después de HOY
 // -----------------------------------------------------------------------------
 const SEMANA = [
   { dia: 1, hora: '16:00', servicio: 'Clases escuela', nivel: 'nivel_1', instalacion: 'Pista A', cupo: 6, duracion: 60 },
@@ -735,23 +781,34 @@ const CABALLO_HABITUAL = {
  * marcar en riesgo. La caída de Martina es además la que explica el contrato
  * suspendido de la familia.  0 = no falta nunca.
  */
-const FALTA_CADA = {
-  'Joaquín Gutiérrez': { '2026-06': 0, '2026-07': 0, '2026-08': 6, '2026-09': 0 },
-  'Martina Gutiérrez': { '2026-06': 6, '2026-07': 3, '2026-08': 2, '2026-09': 1 },
-  'Tomás Rossi': { '2026-06': 0, '2026-07': 6, '2026-08': 4, '2026-09': 1 },
-  'Valentina Rossi': { '2026-06': 5, '2026-07': 6, '2026-08': 5, '2026-09': 0 },
-  'Sofía Ibáñez': { '2026-06': 0, '2026-07': 0, '2026-08': 0, '2026-09': 0 },
-  'Lucía Pereyra': { '2026-06': 4, '2026-07': 5, '2026-08': 0, '2026-09': 2 },
-};
+const FALTA_CADA = Object.fromEntries(
+  Object.entries({
+    'Joaquín Gutiérrez': { '2026-06': 0, '2026-07': 0, '2026-08': 6, '2026-09': 0 },
+    'Martina Gutiérrez': { '2026-06': 6, '2026-07': 3, '2026-08': 2, '2026-09': 1 },
+    'Tomás Rossi': { '2026-06': 0, '2026-07': 6, '2026-08': 4, '2026-09': 1 },
+    'Valentina Rossi': { '2026-06': 5, '2026-07': 6, '2026-08': 5, '2026-09': 0 },
+    'Sofía Ibáñez': { '2026-06': 0, '2026-07': 0, '2026-08': 0, '2026-09': 0 },
+    'Lucía Pereyra': { '2026-06': 4, '2026-07': 5, '2026-08': 0, '2026-09': 2 },
+  }).map(([alumno, porMes]) => [
+    alumno,
+    Object.fromEntries(Object.entries(porMes).map(([periodo, cada]) => [mes(periodo), cada])),
+  ]),
+);
 
-const DESDE = new Date('2026-06-01T12:00:00Z');
-const HASTA = new Date('2026-09-19T12:00:00Z');
+const DESDE = new Date(`${mes('2026-06-01')}T12:00:00Z`);
+const HASTA = new Date(`${diasDesdeHoy(14)}T12:00:00Z`);
 const hoyInstante = new Date(`${HOY}T12:00:00Z`);
 
 // Un par de suspensiones, que es lo que pasa de verdad en invierno.
+// Al correr la fecha puede caer en domingo, que no tiene clase: pasa al lunes.
+const enDiaDeClase = (fecha) => {
+  const d = new Date(`${fecha}T12:00:00Z`);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
 const SUSPENDIDAS = {
-  '2026-07-15': 'Lluvia: pista anegada',
-  '2026-08-20': 'Tormenta con alerta amarilla',
+  [enDiaDeClase(mes('2026-07-15'))]: 'Lluvia: pista anegada',
+  [enDiaDeClase(mes('2026-08-20'))]: 'Tormenta con alerta amarilla',
 };
 
 const clasesNuevas = [];
@@ -833,7 +890,7 @@ const cuentas = await insertar(
 );
 const cuentaDe = Object.fromEntries(cuentas.map((c) => [c.cliente_id, c.id]));
 
-const PERIODOS = ['2026-06', '2026-07', '2026-08'];
+const PERIODOS = ['2026-06', '2026-07', '2026-08'].map(mes);
 const vencimientoDe = (periodo, clienteId) => {
   const dia = clientes.find((c) => c.id === clienteId).dia_vencimiento ?? 10;
   return `${periodo}-${String(dia).padStart(2, '0')}`;
@@ -911,12 +968,12 @@ await insertar('movimiento_cuenta', movimientos, 'cargos');
 
 /** Quién pagó qué: deja la cartera con los tres estados del semáforo. */
 const PAGARON = {
-  Gutiérrez: ['2026-06', '2026-07'],
-  Rossi: ['2026-06'],
-  Ibáñez: ['2026-06', '2026-07', '2026-08'],
-  Pereyra: ['2026-06', '2026-07'],
-  Domínguez: ['2026-06'],
-  'Establecimiento La Media Luna S.R.L.': ['2026-06', '2026-07', '2026-08'],
+  Gutiérrez: ['2026-06', '2026-07'].map(mes),
+  Rossi: ['2026-06'].map(mes),
+  Ibáñez: ['2026-06', '2026-07', '2026-08'].map(mes),
+  Pereyra: ['2026-06', '2026-07'].map(mes),
+  Domínguez: ['2026-06'].map(mes),
+  'Establecimiento La Media Luna S.R.L.': ['2026-06', '2026-07', '2026-08'].map(mes),
 };
 
 const MEDIO = {
@@ -1004,9 +1061,9 @@ await crearAccesoDePortal({
 const torneo = await uno('evento', {
   nombre: 'Torneo interno de salto',
   tipo: 'torneo',
-  inicia_en: enFunes('2026-10-03', '10:00'),
-  finaliza_en: enFunes('2026-10-03', '18:00'),
-  cierra_inscripcion_en: '2026-09-28',
+  inicia_en: enFunes(mes('2026-10-03'), '10:00'),
+  finaliza_en: enFunes(mes('2026-10-03'), '18:00'),
+  cierra_inscripcion_en: mes('2026-09-28'),
   cupo: 20,
   estado: 'abierto',
 });
@@ -1014,4 +1071,4 @@ await insertar('inscripcion_evento', [
   // Uno ya inscripto, para que la pantalla también muestre el cupo bajando.
   { evento_id: torneo.id, cliente_id: cli['Rossi'], alumno_id: alu['Tomás Rossi'], caballo_id: null },
 ]);
-console.log(`  ${torneo.nombre}: abierto hasta el 28/09, 1 de 20 cupos ocupados`);
+console.log(`  ${torneo.nombre}: abierto hasta el ${torneo.cierra_inscripcion_en}, 1 de 20 cupos ocupados`);
