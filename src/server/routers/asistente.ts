@@ -46,7 +46,9 @@ import { routerPanel } from './panel';
  */
 
 const MAX_VUELTAS = 6;
-const MAX_TOKENS_DE_RESPUESTA = 1024;
+// Holgado a propósito: en la familia Gemini 3 el razonamiento interno se descuenta
+// de este mismo límite, y con 1024 la respuesta salía cortada a media frase.
+const MAX_TOKENS_DE_RESPUESTA = 8192;
 
 const mensaje = z.object({
   rol: z.enum(['usuario', 'asistente']),
@@ -127,11 +129,15 @@ async function ejecutarHerramienta(ctx: Contexto, nombre: string, entrada: Recor
  * siguiente. Cualquier otro error corta en el acto: una clave inválida no se
  * arregla cambiando de modelo.
  */
-async function pedirConRespaldo<T>(pedir: (modelo: string) => Promise<T>): Promise<T> {
+async function pedirConRespaldo<T>(
+  pedir: (modelo: string) => Promise<T>,
+  desde: number,
+): Promise<{ respuesta: T; indice: number }> {
   let ultimo: unknown;
-  for (const modelo of MODELOS_DEL_ASISTENTE) {
+  for (let i = desde; i < MODELOS_DEL_ASISTENTE.length; i++) {
+    const modelo = MODELOS_DEL_ASISTENTE[i]!;
     try {
-      return await pedir(modelo);
+      return { respuesta: await pedir(modelo), indice: i };
     } catch (e) {
       if (!(e instanceof GoogleApiError) || (e.status !== 429 && e.status !== 503)) throw e;
       console.warn(`asistente: ${modelo} respondió ${e.status}, se prueba el siguiente`);
@@ -159,6 +165,9 @@ export const routerAsistente = crearRouter({
       }));
 
       const herramientasUsadas = new Set<string>();
+      // Un modelo saturado tarda unos diez segundos en decir que no: una vez que
+      // uno respondió, las vueltas siguientes de la misma pregunta siguen con él.
+      let modeloQueResponde = 0;
 
       for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
         const pedirAGemini = (modelo: string) =>
@@ -175,7 +184,9 @@ export const routerAsistente = crearRouter({
 
         let respuesta: Awaited<ReturnType<typeof ai.models.generateContent>>;
         try {
-          respuesta = await pedirConRespaldo(pedirAGemini);
+          const r = await pedirConRespaldo(pedirAGemini, modeloQueResponde);
+          respuesta = r.respuesta;
+          modeloQueResponde = r.indice;
         } catch (e) {
           if (e instanceof GoogleApiError) {
             if (e.status === 401 || e.status === 403) {
