@@ -216,6 +216,20 @@ async function emitirParaCliente(
     .select('id')
     .single();
   if (error || !comprobante) {
+    // El peor caso de R-06: ARCA ya autorizó y RIENDA no lo registró. El
+    // comprobante existe y es válido; lo que no puede perderse es con qué
+    // número y CAE, para conciliarlo a mano.
+    if (autorizado) {
+      console.error('comprobante: ARCA autorizó y no se pudo guardar', {
+        ptoVta: puntoVenta.numero, numero, cae: resultado.cae, cliente: cliente.id, error,
+      });
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message:
+          `ARCA autorizó el comprobante ${String(puntoVenta.numero).padStart(4, '0')}-${String(numero).padStart(8, '0')} ` +
+          `(CAE ${resultado.cae}), pero no se pudo registrar en RIENDA: ${mensajeDeError(error)} No lo vuelvas a emitir; hay que conciliarlo.`,
+      });
+    }
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'No se pudo guardar el comprobante.' });
   }
 
