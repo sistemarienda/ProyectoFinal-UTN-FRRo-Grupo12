@@ -36,8 +36,12 @@ export function IconoDeClima({ condicion, size = 16 }: { condicion: Condicion; s
 
 /** Lo que va debajo de cada día en la cabecera de la agenda. */
 export function ClimaDelDia({ dia }: { dia: DiaDePronostico }) {
+  // De noche, el día en curso sólo conserva los tramos que le quedan y la
+  // máxima puede coincidir con la mínima: en ese caso, una sola temperatura.
+  const temperaturas = dia.maxima === dia.minima ? `${dia.maxima}°` : `${dia.maxima}°/${dia.minima}°`;
   const descripcion =
-    `${CONDICION_TEXTO[dia.condicion]}, máxima ${dia.maxima}°, mínima ${dia.minima}°, ` +
+    `${CONDICION_TEXTO[dia.condicion]}, ` +
+    (dia.maxima === dia.minima ? `${dia.maxima}°, ` : `máxima ${dia.maxima}°, mínima ${dia.minima}°, `) +
     `${porcentaje(dia.probabilidadLluvia)} de probabilidad de lluvia` +
     (dia.vientoFuerte ? `, ráfagas de ${dia.rafagaMaximaKmh} km/h` : '');
 
@@ -50,7 +54,8 @@ export function ClimaDelDia({ dia }: { dia: DiaDePronostico }) {
     >
       <IconoDeClima condicion={dia.condicion} size={14} />
       <span aria-hidden="true">
-        {dia.maxima}°/{dia.minima}°{dia.lluviaProbable ? ` · ${porcentaje(dia.probabilidadLluvia)}` : ''}
+        {temperaturas}
+        {dia.lluviaProbable ? ` · ${porcentaje(dia.probabilidadLluvia)}` : ''}
       </span>
       <span className="sr-only">{descripcion}</span>
     </span>
@@ -100,9 +105,11 @@ export function ClimaDeHoy({ ahora, dia }: { ahora: TramoDePronostico | null; di
       </span>
       {dia && (
         <>
-          <span className="tnum">
-            Máx. {dia.maxima}° · mín. {dia.minima}°
-          </span>
+          {dia.maxima !== dia.minima && (
+            <span className="tnum">
+              Máx. {dia.maxima}° · mín. {dia.minima}°
+            </span>
+          )}
           <span className="tnum">Lluvia {porcentaje(dia.probabilidadLluvia)}</span>
           {dia.vientoFuerte && <span className="tnum">Ráfagas de {dia.rafagaMaximaKmh} km/h</span>}
         </>

@@ -624,7 +624,10 @@ console.log(
 // (decisión 1.6) y el consumo cuelga de él (decisión 1.7): son las dos
 // propiedades que M14 va a necesitar intactas cuando enganche la cola.
 // ---------------------------------------------------------------------------
-const DIAS_DE_CUIDADO = [diasDesdeHoy(-2), diasDesdeHoy(-1), HOY];
+// Los tres días anteriores, y HOY no: la jornada de la demostración tiene que
+// arrancar con las tomas pendientes, que es lo que el peón registra en vivo (y
+// sin conexión, M14). Sembrar HOY la dejaba toda registrada.
+const DIAS_DE_CUIDADO = [diasDesdeHoy(-3), diasDesdeHoy(-2), diasDesdeHoy(-1)];
 
 const elCuidado = (d) => ({
   instalacion_id: null,
@@ -657,7 +660,7 @@ for (const dia of DIAS_DE_CUIDADO) {
           // Una novedad real, para que el campo de observaciones no se vea vacío
           // en todas las filas: Nube está en tratamiento y come menos.
           observaciones:
-            c.nombre === 'Nube' && momento === 'manana' && dia === HOY
+            c.nombre === 'Nube' && momento === 'manana' && dia === diasDesdeHoy(-1)
               ? 'Dejó la mitad de la ración. Sigue en reposo por la claudicación.'
               : null,
         }),
@@ -845,7 +848,8 @@ for (let d = new Date(DESDE); d <= HASTA; d.setUTCDate(d.getUTCDate() + 1)) {
       clase_id: claseId,
       alumno_id: alu[nombre],
       caballo_id: cab[habitual],
-      inscripto_en: enFunes(fecha, '08:00'),
+      // Nunca después de HOY: a una clase futura alguien se anotó antes.
+      inscripto_en: enFunes(fecha < HOY ? fecha : diasDesdeHoy(-1), '08:00'),
       estado: 'inscripto',
       cancelado_en: null,
     });
