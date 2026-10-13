@@ -10,6 +10,7 @@ import type { ResultadoDeGuardado } from '@/lib/formularios';
 import { edadEn } from '@/lib/personas';
 import { BotonEnviar } from '../../botones';
 import { Modal } from '../../modal';
+import { fechaCorta } from '@/lib/fechas';
 
 type Salidas = inferRouterOutputs<RouterApp>;
 type Ficha = Salidas['caballo']['ficha'];
@@ -97,7 +98,7 @@ export function FichaDeCaballo({
               {contratos.map((c) => (
                 <tr key={c.id}>
                   <td className="font-medium">{c.servicio?.nombre}</td>
-                  <td>{c.fecha_inicio}</td>
+                  <td>{fechaCorta(c.fecha_inicio)}</td>
                   <td className="num">{c.importe_pactado ? `$${Number(c.importe_pactado).toLocaleString('es-AR')}` : '—'}</td>
                   <td><span className="badge badge-accent">{c.estado}</span></td>
                 </tr>

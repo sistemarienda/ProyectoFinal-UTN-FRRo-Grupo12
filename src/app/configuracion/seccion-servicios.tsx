@@ -5,6 +5,7 @@ import type { ResultadoDeGuardado } from '@/lib/formularios';
 import { crearServicio, crearTarifa, modificarServicio } from './acciones-servicios';
 import { BotonEnviar } from '../botones';
 import { Modal } from '../modal';
+import { fechaCorta } from '@/lib/fechas';
 
 export interface ServicioVisible {
   id: string;
@@ -76,7 +77,7 @@ function FilaServicio({ servicio: s }: { servicio: ServicioVisible }) {
       <td className="num font-medium">
         {s.tarifaVigente ? `$${s.tarifaVigente.importe.toLocaleString('es-AR')}` : 'Sin tarifa'}
       </td>
-      <td className="text-fg-muted">{s.tarifaVigente?.vigenteDesde ?? '—'}</td>
+      <td className="text-fg-muted">{s.tarifaVigente ? fechaCorta(s.tarifaVigente.vigenteDesde) : '—'}</td>
       <td>
         <span className={`badge ${s.activo ? 'badge-ok' : ''}`}>{s.activo ? 'Activo' : 'Inactivo'}</span>
         <div className="mt-1.5">

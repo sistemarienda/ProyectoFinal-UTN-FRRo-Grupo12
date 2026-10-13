@@ -191,7 +191,7 @@ export const routerCuentaCorriente = crearRouter({
       const { data: contratos, error } = await ctx.supabase
         .from('contrato')
         .select(
-          'id, cliente_id, importe_pactado, cliente:cliente_id (dia_vencimiento), servicio:servicio_id (id, nombre, unidad, tarifa(importe, vigente_desde))',
+          'id, cliente_id, importe_pactado, cliente:cliente_id (dia_vencimiento), servicio:servicio_id (id, nombre, unidad, tarifa(importe, vigente_desde)), caballo:caballo_id (nombre), alumno:alumno_id (persona:persona_id (nombre, apellido))',
         )
         .eq('estado', 'vigente')
         .lte('fecha_inicio', finDeMes.toISOString().slice(0, 10))
@@ -241,7 +241,17 @@ export const routerCuentaCorriente = crearRouter({
         const { error: errorInsert } = await ctx.supabase.from('movimiento_cuenta').insert({
           cuenta_corriente_id: cuentaId,
           tipo: 'cargo',
-          concepto: `${contrato.servicio!.nombre} · ${periodoIso.slice(0, 7)}`,
+          // Lo que el cliente lee en su estado de cuenta: el servicio, sobre qué
+          // caballo o alumno, y el mes. Un cliente con dos caballos en pensión
+          // tiene que poder distinguir un cargo del otro.
+          concepto: [
+            contrato.servicio!.nombre,
+            contrato.caballo?.nombre ??
+              [contrato.alumno?.persona?.nombre, contrato.alumno?.persona?.apellido].filter(Boolean).join(' '),
+            periodo.toLocaleDateString('es-AR', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+          ]
+            .filter(Boolean)
+            .join(' · '),
           contrato_id: contrato.id,
           importe,
           periodo: periodoIso,

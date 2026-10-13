@@ -10,6 +10,7 @@ import { crearContrato, darDeBajaContrato, modificarContrato } from '../acciones
 import type { ResultadoDeGuardado } from '@/lib/formularios';
 import { BotonEnviar } from '../../botones';
 import { Modal } from '../../modal';
+import { fechaCorta } from '@/lib/fechas';
 
 type Salidas = inferRouterOutputs<RouterApp>;
 type Ficha = Salidas['cliente']['ficha'];
@@ -305,7 +306,7 @@ function FilaContrato({ contrato: c, clienteId }: { contrato: Ficha['contratos']
     <tr className="align-top">
       <td className="font-medium">{c.servicio?.nombre}</td>
       <td>{objeto}</td>
-      <td>{c.fecha_inicio}</td>
+      <td>{fechaCorta(c.fecha_inicio)}</td>
       <td className="num">{c.importe_pactado ? `$${Number(c.importe_pactado).toLocaleString('es-AR')}` : '—'}</td>
       <td>
         <span className={`badge ${ESTADO_CONTRATO_BADGE[c.estado]}`}>{c.estado}</span>

@@ -10,6 +10,7 @@ import type { ResultadoDeGuardado } from '@/lib/formularios';
 import { edadEn } from '@/lib/personas';
 import { BotonEnviar } from '../botones';
 import { Modal } from '../modal';
+import { fechaCorta } from '@/lib/fechas';
 
 type Alumno = inferRouterOutputs<RouterApp>['alumno']['listar'][number];
 
@@ -40,7 +41,7 @@ export function FilaAlumno({ alumno: a }: { alumno: Alumno }) {
       </td>
       <td>
         {a.consentimiento_tutor_en ? (
-          <span className="badge badge-ok"><CheckCircle size={13} aria-hidden="true" />Consent. {a.consentimiento_tutor_en.slice(0, 10)}</span>
+          <span className="badge badge-ok"><CheckCircle size={13} aria-hidden="true" />Consent. {fechaCorta(a.consentimiento_tutor_en)}</span>
         ) : edad !== null && edad < 18 ? (
           <span className="badge badge-bad"><WarningCircle size={13} aria-hidden="true" />Sin consentimiento</span>
         ) : (

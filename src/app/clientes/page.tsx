@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Plus, WarningCircle } from '@phosphor-icons/react/dist/ssr';
 import { llamador } from '@/lib/trpc/servidor';
+import { fechaCorta } from '@/lib/fechas';
 
 export const metadata: Metadata = { title: 'Clientes y contratos' };
 
@@ -44,7 +45,7 @@ export default async function Clientes() {
                     ? c.cliente.razon_social
                     : `${c.cliente?.persona?.apellido}, ${c.cliente?.persona?.nombre}`}
                 </Link>{' '}
-                · {c.servicio?.nombre} · vence {c.fecha_fin}
+                · {c.servicio?.nombre} · vence {c.fecha_fin ? fechaCorta(c.fecha_fin) : ''}
               </li>
             ))}
           </ul>

@@ -6,6 +6,7 @@ import type { RouterApp } from '@/server/routers/_app';
 import { ajusteManual, aplicarMora, condonarInteres } from '../acciones';
 import type { ResultadoDeGuardado } from '@/lib/formularios';
 import { BotonEnviar } from '../../botones';
+import { fechaCorta } from '@/lib/fechas';
 
 type Salidas = inferRouterOutputs<RouterApp>;
 type LibroMayor = Salidas['cuentaCorriente']['libroMayor'];
@@ -81,7 +82,7 @@ export function DetalleDeCuenta({
                   <td>
                     <span className="badge badge-accent">{TIPO_TEXTO[m.tipo]}</span> {m.concepto}
                   </td>
-                  <td className="text-xs">{m.vence_en ?? '—'}</td>
+                  <td className="text-xs">{m.vence_en ? fechaCorta(m.vence_en) : '—'}</td>
                   <td className={`num font-medium ${Number(m.importe) < 0 ? 'text-ok' : ''}`}>
                     {formatoDinero(Number(m.importe))}
                   </td>

@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import type { ResultadoDeGuardado } from '@/lib/formularios';
 import { crearIdentidadFiscal } from './acciones-arca';
 import { BotonEnviar } from '../botones';
+import { fechaCorta } from '@/lib/fechas';
 
 export interface IdentidadFiscalVisible {
   id: string;
@@ -53,7 +54,7 @@ export function SeccionIdentidadFiscal({ identidades }: { identidades: Identidad
                 <td className="font-medium">{i.razon_social}</td>
                 <td>{i.cuit}</td>
                 <td className="text-xs">{CONDICION_TEXTO[i.condicion_iva]}</td>
-                <td className="text-fg-muted">{i.vigente_desde}</td>
+                <td className="text-fg-muted">{fechaCorta(i.vigente_desde)}</td>
               </tr>
             ))}
             {identidades.length === 0 && (

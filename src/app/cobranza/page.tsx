@@ -2,11 +2,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { llamador } from '@/lib/trpc/servidor';
 import { FormularioCargos } from './formulario-cargos';
+import { fechaCorta } from '@/lib/fechas';
 
 export const metadata: Metadata = { title: 'Cobranza' };
 
 const ESTADO_BADGE = { al_dia: 'badge-ok', proximo_a_vencer: 'badge-warn', vencido: 'badge-bad' } as const;
-const ESTADO_TEXTO = { al_dia: 'Al día', proximo_a_vencer: 'Por vencer', vencido: 'Vencido' } as const;
+// «Vence pronto» y no «Por vencer»: el indicador de arriba ya se llama así y
+// suma todo lo que todavía no venció; este estado marca sólo lo que entra en los
+// días de aviso previo.
+const ESTADO_TEXTO = { al_dia: 'Al día', proximo_a_vencer: 'Vence pronto', vencido: 'Vencido' } as const;
+
 
 function formatoDinero(n: number) {
   return `$${n.toLocaleString('es-AR')}`;
@@ -71,7 +76,7 @@ export default async function Cobranza() {
                   </Link>
                 </td>
                 <td className="num font-medium">{formatoDinero(c.saldo)}</td>
-                <td>{c.proximoVencimiento ?? '—'}</td>
+                <td>{c.proximoVencimiento ? fechaCorta(c.proximoVencimiento) : '—'}</td>
                 <td>
                   <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{ESTADO_TEXTO[c.estado]}</span>
                 </td>
