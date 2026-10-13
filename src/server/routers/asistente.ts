@@ -11,7 +11,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { crearRouter, procedimientoAdmin } from '../trpc';
 import type { Contexto } from '../contexto';
-import { HERRAMIENTAS, MODELO_DEL_ASISTENTE, PROMPT_DEL_SISTEMA, coincideConBusqueda } from '@/lib/asistente';
+import { HERRAMIENTAS, MODELOS_DEL_ASISTENTE, PROMPT_DEL_SISTEMA, coincideConBusqueda } from '@/lib/asistente';
 import { routerCaballo } from './caballo';
 import { routerClase } from './clase';
 import { routerCliente } from './cliente';
@@ -122,6 +122,25 @@ async function ejecutarHerramienta(ctx: Contexto, nombre: string, entrada: Recor
   }
 }
 
+/**
+ * Pide al primer modelo de la lista y, ante «alta demanda» (429 o 503), al
+ * siguiente. Cualquier otro error corta en el acto: una clave inválida no se
+ * arregla cambiando de modelo.
+ */
+async function pedirConRespaldo<T>(pedir: (modelo: string) => Promise<T>): Promise<T> {
+  let ultimo: unknown;
+  for (const modelo of MODELOS_DEL_ASISTENTE) {
+    try {
+      return await pedir(modelo);
+    } catch (e) {
+      if (!(e instanceof GoogleApiError) || (e.status !== 429 && e.status !== 503)) throw e;
+      console.warn(`asistente: ${modelo} respondió ${e.status}, se prueba el siguiente`);
+      ultimo = e;
+    }
+  }
+  throw ultimo;
+}
+
 export const routerAsistente = crearRouter({
   /**
    * Una pregunta, con todo el historial de la conversación (sin memoria
@@ -142,9 +161,9 @@ export const routerAsistente = crearRouter({
       const herramientasUsadas = new Set<string>();
 
       for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
-        const pedirAGemini = () =>
+        const pedirAGemini = (modelo: string) =>
           ai.models.generateContent({
-            model: MODELO_DEL_ASISTENTE,
+            model: modelo,
             contents,
             config: {
               systemInstruction: PROMPT_DEL_SISTEMA,
@@ -156,17 +175,7 @@ export const routerAsistente = crearRouter({
 
         let respuesta: Awaited<ReturnType<typeof ai.models.generateContent>>;
         try {
-          try {
-            respuesta = await pedirAGemini();
-          } catch (e) {
-            // 503: "alta demanda" del lado de Google, casi siempre pasajero (su propio
-            // mensaje lo dice) — vale un único reintento antes de rendirse.
-            if (e instanceof GoogleApiError && e.status === 503) {
-              respuesta = await pedirAGemini();
-            } else {
-              throw e;
-            }
-          }
+          respuesta = await pedirConRespaldo(pedirAGemini);
         } catch (e) {
           if (e instanceof GoogleApiError) {
             if (e.status === 401 || e.status === 403) {

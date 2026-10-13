@@ -32,7 +32,12 @@ export interface DefinicionDeHerramienta {
 
 // `gemini-2.5-flash` quedó deprecado para cuentas nuevas (17/09/2026); Google
 // redirige a esta familia en el propio mensaje de error del 404.
-export const MODELO_DEL_ASISTENTE = 'gemini-3.6-flash';
+//
+// Van en orden de preferencia: si uno responde 429 o 503 («alta demanda»), se
+// prueba el siguiente. En la QA del 13/10/2026 el principal y `gemini-3.5-flash`
+// estaban saturados a la vez y los dos de respaldo respondían; con un solo
+// modelo, el asistente quedaba fuera de servicio mientras durara el pico.
+export const MODELOS_DEL_ASISTENTE = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite'] as const;
 
 export const PROMPT_DEL_SISTEMA = `Sos el asistente de RIENDA, el sistema de gestión del Haras Las Lechuzas
 (pupilaje, enseñanza de equitación y eventos). Contestás en español rioplatense, corto y directo,

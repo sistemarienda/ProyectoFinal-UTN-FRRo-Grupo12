@@ -998,7 +998,12 @@ for (const [nombre, periodos] of Object.entries(PAGARON)) {
       .reduce((a, m) => a + m.importe, 0);
     if (total === 0) continue;
 
-    const cuando = enFunes(vencimientoDe(periodo, clienteId), '11:30');
+    // Los que pagaron el último período lo hicieron tarde, ya en el mes de HOY:
+    // así la pantalla de pagos tiene cobros del mes en curso y no arranca vacía.
+    const cuando =
+      periodo === PERIODOS.at(-1)
+        ? enFunes(diasDesdeHoy(nombre === 'Ibáñez' ? -6 : -2), '11:30')
+        : enFunes(vencimientoDe(periodo, clienteId), '11:30');
     const pago = await uno('pago', {
       cliente_id: clienteId,
       importe: total,
