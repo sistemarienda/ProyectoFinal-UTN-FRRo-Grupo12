@@ -30,7 +30,7 @@ export function SeccionIdentidadFiscal({ identidades }: { identidades: Identidad
   return (
     <section className="card overflow-hidden">
       <div className="border-b border-surface-border px-5 py-4">
-        <h2 className="font-serif text-lg text-fg">Identidad fiscal (M6)</h2>
+        <h2 className="font-serif text-lg text-fg">Identidad fiscal</h2>
         <p className="mt-1 text-sm text-fg-muted">
           Con qué datos factura el sistema. El haras factura hoy como monotributista y va a pasar a
           ser una asociación civil: cada cambio es una fila nueva, nunca se pisa la anterior.

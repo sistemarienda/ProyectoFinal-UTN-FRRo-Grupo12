@@ -56,7 +56,7 @@ export default async function Mensajeria() {
         <p className="mt-1 text-xs text-fg-muted">
           Confirmación de clase y aviso de suspensión salen al programar o suspender una clase; invitación a un
           evento y acuse de pago, al enviarlos o al acreditarse un pago; los dos avisos de cobranza corren solos
-          todos los días (RN-11).
+          todos los días.
         </p>
         <div className="mt-2 overflow-x-auto">
           <table className="tbl">

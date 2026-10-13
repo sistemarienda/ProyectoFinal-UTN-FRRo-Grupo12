@@ -163,7 +163,7 @@ async function modalidadDelServicio(supabase: SupabaseClient<Database>, servicio
   if (!data.modalidad) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
-      message: `«${data.nombre}» no es un servicio de clase: no tiene modalidad declarada (RN-14).`,
+      message: `«${data.nombre}» no es un servicio de clase: no tiene modalidad declarada.`,
     });
   }
   return data.modalidad;

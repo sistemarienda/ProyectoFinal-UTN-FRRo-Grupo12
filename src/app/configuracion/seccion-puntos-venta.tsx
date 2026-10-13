@@ -20,7 +20,7 @@ export function SeccionPuntosDeVenta({ puntos }: { puntos: PuntoVentaVisible[] }
   return (
     <section className="card overflow-hidden">
       <div className="border-b border-surface-border px-5 py-4">
-        <h2 className="font-serif text-lg text-fg">Puntos de venta (M6)</h2>
+        <h2 className="font-serif text-lg text-fg">Puntos de venta</h2>
         <p className="mt-1 text-sm text-fg-muted">
           El sistema emite sólo por el punto marcado como web service; el que el haras usa a mano
           queda registrado acá para no confundirlos, pero nunca se emite contra él.

@@ -122,7 +122,7 @@ async function emitirParaCliente(
 ) {
   const cliente = cargos[0]!.cuenta!.cliente!;
   if (!cliente.requiere_factura) {
-    throw new TRPCError({ code: 'BAD_REQUEST', message: `${nombreDeCliente(cliente)} no pide factura (RN-05).` });
+    throw new TRPCError({ code: 'BAD_REQUEST', message: `${nombreDeCliente(cliente)} no pide factura.` });
   }
   if (!cliente.condicion_iva) {
     throw new TRPCError({
