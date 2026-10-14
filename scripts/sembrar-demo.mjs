@@ -375,6 +375,8 @@ const clientes = await insertar('cliente', [
   elCliente({ persona_id: per['Sofía Ibáñez'], dia_vencimiento: 5, consentimiento_en: '2026-03-01T13:00:00Z', consentimiento_medio: 'WhatsApp' }),
   elCliente({ persona_id: per['Lucía Pereyra'], consentimiento_en: '2026-01-20T13:00:00Z', consentimiento_medio: 'WhatsApp' }),
   elCliente({ persona_id: per['Alejandro Domínguez'], dia_vencimiento: 15, consentimiento_en: '2025-11-08T13:00:00Z', consentimiento_medio: 'firma en contrato de pensión' }),
+  // PENDIENTE: este CUIT es inventado y ARCA homologación lo rechaza (10015, no está
+  // en el padrón). Va el CUIT del haras cuando lo pasen (decisión del 13/10/2026).
   elCliente({ tipo: 'persona_juridica', razon_social: 'Establecimiento La Media Luna S.R.L.', persona_id: per['Elena Ferrari'], requiere_factura: true, cuit: '30715482913', condicion_iva: 'responsable_inscripto', canal_preferido: 'email', dia_vencimiento: 20, consentimiento_en: '2025-09-12T13:00:00Z', consentimiento_medio: 'contrato marco' }),
 ]);
 const cli = Object.fromEntries(
