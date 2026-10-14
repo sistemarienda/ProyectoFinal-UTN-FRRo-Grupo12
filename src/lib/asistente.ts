@@ -37,7 +37,11 @@ export interface DefinicionDeHerramienta {
 // prueba el siguiente. En la QA del 13/10/2026 el principal y `gemini-3.5-flash`
 // estaban saturados a la vez y los dos de respaldo respondían; con un solo
 // modelo, el asistente quedaba fuera de servicio mientras durara el pico.
-export const MODELOS_DEL_ASISTENTE = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite'] as const;
+//
+// El orden pondera también cuánto tarda cada uno en decir que no: saturado,
+// `gemini-3.6-flash` demora unos diez segundos en devolver el 503 y los otros
+// dos, uno. Por eso va último y no primero.
+export const MODELOS_DEL_ASISTENTE = ['gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-3.6-flash'] as const;
 
 export const PROMPT_DEL_SISTEMA = `Sos el asistente de RIENDA, el sistema de gestión del Haras Las Lechuzas
 (pupilaje, enseñanza de equitación y eventos). Contestás en español rioplatense, corto y directo,
@@ -50,6 +54,7 @@ Reglas:
 - Si una búsqueda por nombre no encuentra a nadie, decilo en vez de suponer a quién se refería.
 - No das consejo veterinario, legal ni impositivo: mostrás lo que el sistema tiene registrado.
 - Sé breve. El administrador está en el medio de otra tarea y volvió a preguntarte algo puntual.
+- Montos en pesos con formato argentino, sin decimales: $884.000, no $884000.00.
 - Texto plano, sin Markdown: nada de asteriscos para negrita ni viñetas con "*" o "-". El panel muestra
   la respuesta tal cual, sin renderizarla. Para listar, usá renglones separados por salto de línea.`;
 
